@@ -79,9 +79,16 @@ padding:0;color:var(--mut);border-radius:6px}
 #pomo{position:absolute;inset:0;background:var(--paper);z-index:9;
 padding:34px 20px;display:flex;flex-direction:column;gap:14px;
 align-items:center}
-#pcat{height:118px;margin:0 0 -4px;transition:transform .2s}
-#pcat.run{animation:catbob .56s ease-in-out infinite}
-@keyframes catbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+#pcatwrap{position:relative;display:inline-block;margin:0 0 -4px}
+#pcat{height:118px;display:block;transform-origin:50% 90%}
+#pcat.zen{animation:zensway 3.2s ease-in-out infinite}
+@keyframes zensway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
+.note{position:absolute;left:8px;bottom:56px;font-size:13px;color:var(--acc);
+opacity:0;pointer-events:none}
+#pcatwrap.zen .note{animation:notefloat 3s ease-out infinite}
+#pcatwrap.zen .n2{animation-delay:1s;left:2px}#pcatwrap.zen .n3{animation-delay:2s;left:14px}
+@keyframes notefloat{0%{opacity:0;transform:translate(0,0) scale(.8)}
+20%{opacity:.85}100%{opacity:0;transform:translate(-14px,-34px) scale(1.1)}}
 #pmode{font-size:12px;font-weight:600;color:var(--mut);
 letter-spacing:.06em;text-transform:uppercase}
 #ptime{font-size:56px;font-weight:700;font-variant-numeric:tabular-nums;
@@ -160,7 +167,8 @@ border-radius:8px;padding:8px;font:inherit;cursor:pointer}
 <span id="l_pb"></span><select id="pbsel"><option>5</option>
 <option>10</option><option>15</option></select><span class="mn" id="l_m2"></span>
 </div>
-<img id="pcat" src="../assets/pomo_zen.png" alt="">
+<div id="pcatwrap"><span class="note n1">♪</span><span class="note n2">♫</span><span class="note n3">♪</span>
+<img id="pcat" src="../assets/pomo_zen.png" alt=""></div>
 <div id="pmode"></div>
 <div id="ptime">25:00</div>
 <div class="pbtns">
@@ -329,12 +337,10 @@ post({action:"add",title:inp.value.trim(),cat:sel});inp.value=""}});
 const P={mode:"work",rem:25*60,run:false,iv:null,init:false};
 function pdur(m){return (m==="work"?(S?S.settings.pomo_work:25):(S?S.settings.pomo_break:5))*60}
 function pfmt(n){return String(Math.floor(n/60)).padStart(2,"0")+":"+String(n%60).padStart(2,"0")}
-let catIv=null,catF=1;
-function pcatUpdate(){const im=document.getElementById("pcat");
-if(P.run&&P.mode==="work"){im.classList.add("run");
-if(!catIv){catIv=setInterval(()=>{catF=catF%8+1;im.src="../assets/walk/walk"+catF+".png"},90)}}
-else{if(catIv){clearInterval(catIv);catIv=null}im.classList.remove("run");
-im.src="../assets/pomo_zen.png"}}
+function pcatUpdate(){const im=document.getElementById("pcat"),w=document.getElementById("pcatwrap");
+im.src="../assets/pomo_zen.png";           // rule: a Pomodoro = sitting cat with the singing bowl
+const on=P.run&&P.mode==="work";
+im.classList.toggle("zen",on);w.classList.toggle("zen",on)}
 function pomoUI(){if(!S)return;const t=T();pcatUpdate();
 if(!P.init){P.rem=pdur("work");P.init=true}
 document.getElementById("pmode").textContent=P.mode==="work"?t.focus:t.brk;

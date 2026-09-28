@@ -350,6 +350,7 @@ class Bridge(NSObject):
         self.pet_frame = 0
         self.pet_moving = False
         self.pet_active_until = 0.0
+        self.pomo_running = False
         self.cal_status = "connected" if cached_events() else "none"
         return self
 
@@ -365,7 +366,9 @@ class Bridge(NSObject):
         AppHelper.callAfter(ui)
 
     def apply_pet_image(self):
-        if self.pet_state == "idle" and self.pet_moving:
+        if self.pet_state == "idle" and self.pomo_running:
+            base = "zen"                     # rule: Pomodoro → singing-bowl cat, never walking
+        elif self.pet_state == "idle" and self.pet_moving:
             base = f"walk{(self.pet_frame % 8) + 1}"
         else:
             base = self.pet_state
@@ -522,6 +525,10 @@ class Bridge(NSObject):
             self.push()
         elif a == "pomo_title":
             self.pomo_text = str(b.get("text", ""))
+            running = self.pomo_text.startswith("🍅")   # work session (☕ = break)
+            if running != self.pomo_running:
+                self.pomo_running = running
+                self.apply_pet_image()
             if self.status is not None:
                 txt = self.pomo_text
                 AppHelper.callAfter(
@@ -754,8 +761,9 @@ def main():
                     ("happy_flip", "pet_happy_flip.png"),
                     *[(f"walk{i}", f"walk{i}.png") for i in range(1, 9)],
                     *[(f"walk{i}_flip", f"walk{i}_flip.png")
-                      for i in range(1, 9)]):
-        sub = "walk" if fn.startswith("walk") else "cat"
+                      for i in range(1, 9)],
+                    ("zen", "pomo_zen.png")):
+        sub = "walk" if fn.startswith("walk") else ("" if fn.startswith("pomo") else "cat")
         im = NSImage.alloc().initWithContentsOfFile_(str(ASSETS / sub / fn))
         if im:
             imgs[key] = im
@@ -794,8 +802,8 @@ def main():
                 right = pf.origin.x + pf.size.width - cf.size.width - 6
                 if right <= left:
                     continue
-                if _t.time() > bridge.pet_active_until:
-                    # idle: sit still, follow the panel if it moves
+                if _t.time() > bridge.pet_active_until or bridge.pomo_running:
+                    # idle or Pomodoro running: sit still, follow the panel if it moves
                     if bridge.pet_moving:
                         bridge.pet_moving = False
                         bridge.apply_pet_image()

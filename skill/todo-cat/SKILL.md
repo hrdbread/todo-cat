@@ -7,6 +7,11 @@ description: Install, deploy, maintain and extend the todo-cat macOS app — a f
 
 Open-source personal productivity app (GitHub `hyojinyang-ai/todo-cat`), usually cloned to `~/.claude-todo`. Reply in the user's language, concisely; offer options when a request is ambiguous.
 
+## Product rules (decided by the user — do not "improve" them away)
+1. **A Pomodoro means the cat sits with the singing bowl.** While a work session runs, both the Pomodoro page and the desktop pet show the singing-bowl cat (`assets/pomo_zen.png`, gently swaying with floating notes on the page). The walk cycle is reserved for to-do activity only; it never plays during a Pomodoro.
+2. The pet sits idle on the panel and walks only for 60 s after a to-do interaction (add/complete/edit/click/typing). Pomodoro ticks and calendar refreshes are not activity.
+3. Obsidian output (Daily Log, Dashboard, retro) is bilingual ko/en; the UI follows the language setting.
+
 ## What it is (30 seconds)
 - **Floating panel** (`app/panel.py` + `app/panel.html`): always-on-top, all Spaces, non-activating. Pages: Todo / Pomodoro / Settings (ko·en).
 - **Data core** (`app/todo.py`): tasks in `<vault>/Tracker/tasks.json` (vault from `config.json`); writes Obsidian **Daily Log / Monthly / Dashboard / Retros**.

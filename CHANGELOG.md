@@ -2,6 +2,10 @@
 
 Everything here was built pair-programming with Claude. Dates are actual working days.
 
+## 2026-09-28
+### Changed
+- **Rule: a Pomodoro shows the singing-bowl cat, never the walking cat.** Pomodoro page now animates the sitting cat (gentle sway + floating notes) instead of the walk cycle; the desktop pet also sits with the bowl for the whole work session. Recorded as product rule #1 in CLAUDE.md / SKILL.md.
+
 ## 2026-09-25
 ### Fixed
 - **App crashed when a Pomodoro session finished** (`NameError: notify` inside the WebKit message handler → pyobjc abort). Fixed the missing reference and wrapped the bridge callback so no Python exception can ever take the process down again; errors are now logged to `/tmp/claude-panel.log` instead.

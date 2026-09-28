@@ -5,6 +5,11 @@ A stress-free To-Do app for macOS: always-on-top floating panel + Outlook events
 + Pomodoro + Obsidian Daily Log / Monthly / Dashboard / AI retro + a cat pet walking along the panel. Python (pyobjc) + WKWebView.
 Reply in the user's language, concisely. When a request has several readings, offer options.
 
+## Product rules (decided by the user — do not "improve" them away)
+1. **A Pomodoro means the cat sits with the singing bowl.** While a work session runs, both the Pomodoro page and the desktop pet show the singing-bowl cat (`assets/pomo_zen.png`, gently swaying with floating notes on the page). The walk cycle is reserved for to-do activity only; it never plays during a Pomodoro.
+2. The pet sits idle on the panel and walks only for 60 s after a to-do interaction (add/complete/edit/click/typing). Pomodoro ticks and calendar refreshes are not activity.
+3. Obsidian output (Daily Log, Dashboard, retro) is bilingual ko/en; the UI follows the language setting.
+
 ## Locations
 - Code: `~/.claude-todo/` (clone of GitHub `hyojinyang-ai/todo-cat`)
 - App bundle: `~/Applications/To-Do.app` (`To-Do` = zsh wrapper → `To-Do-bin` = copy of the Python GUI binary; bundle id `com.todocat.app`)
