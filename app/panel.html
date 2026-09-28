@@ -150,6 +150,7 @@ border-radius:8px;padding:8px;font:inherit;cursor:pointer}
 <input type="checkbox" id="impchk" style="accent-color:var(--acc);width:16px;height:16px"></div>
 <div class="srow"><span id="l_pet"></span>
 <input type="checkbox" id="petchk" style="accent-color:var(--acc);width:16px;height:16px"></div>
+<div class="srow"><span id="l_pets"></span><span id="petpick"></span></div>
 <div class="srow"><span id="l_walk"></span>
 <input type="checkbox" id="walkchk" style="accent-color:var(--acc);width:16px;height:16px"></div>
 <div class="shint" id="l_hint"></div>
@@ -184,13 +185,13 @@ dash:"대시보드",retro:"Daily 회고",rcal:"일정 새로고침",quit:"종료
 lang:"언어",op:"투명도",close:"완료",noopen:"열린 항목 없음 — 가볍게 하나 추가해보세요.",
 noev:"오늘 남은 일정이 없습니다.",nosrc:"일정 소스 없음 — Exchange 계정 또는 ICS 링크를 등록하세요.",
 recheck:"일정 소스 다시 확인",retry:"다시 연결",checking:"확인 중…",
-hint:"크기 조절: 가장자리 드래그 · 이동: 상단 띠 드래그",imp:"8시에 일정을 할 일로 가져오기",pet:"데스크톱 고양이 펫",walk:"사용 중일 때 패널 위 산책",edit:"수정",del:"삭제",catchg:"카테고리 변경",hide:"목록에서 지우기",pomo:"포모도로",focus:"집중",brk:"휴식",start:"시작",pause:"일시정지",resume:"계속",reset:"종료(리셋)",pw:"집중",pb:"휴식",ptoday:"오늘 완료한 포모도로",min:"분"},
+hint:"크기 조절: 가장자리 드래그 · 이동: 상단 띠 드래그",imp:"8시에 일정을 할 일로 가져오기",pet:"데스크톱 고양이 펫",walk:"사용 중일 때 패널 위 산책",pets:"고양이",edit:"수정",del:"삭제",catchg:"카테고리 변경",hide:"목록에서 지우기",pomo:"포모도로",focus:"집중",brk:"휴식",start:"시작",pause:"일시정지",resume:"계속",reset:"종료(리셋)",pw:"집중",pb:"휴식",ptoday:"오늘 완료한 포모도로",min:"분"},
 en:{cal:"Today's schedule",todo:"To do",done:"Done today",inp:"Type and press Enter",
 dash:"Dashboard",retro:"Daily retro",rcal:"Refresh calendar",quit:"Quit",set:"Settings",
 lang:"Language",op:"Opacity",close:"Done",noopen:"Nothing open — add something light.",
 noev:"No more events today.",nosrc:"No calendar source — add an Exchange account or ICS link.",
 recheck:"Re-check calendar source",retry:"Reconnect",checking:"Checking…",
-hint:"Resize: drag edges · Move: drag the top strip",imp:"Import events as todos at 8 AM",pet:"Desktop cat pet",walk:"Walk on the panel while active",edit:"Edit",del:"Delete",catchg:"Change category",hide:"Remove from list",pomo:"Pomodoro",focus:"Focus",brk:"Break",start:"Start",pause:"Pause",resume:"Resume",reset:"Stop (reset)",pw:"Focus",pb:"Break",ptoday:"Pomodoros today",min:"min"}};
+hint:"Resize: drag edges · Move: drag the top strip",imp:"Import events as todos at 8 AM",pet:"Desktop cat pet",walk:"Walk on the panel while active",pets:"Cats",edit:"Edit",del:"Delete",catchg:"Change category",hide:"Remove from list",pomo:"Pomodoro",focus:"Focus",brk:"Break",start:"Start",pause:"Pause",resume:"Resume",reset:"Stop (reset)",pw:"Focus",pb:"Break",ptoday:"Pomodoros today",min:"min"}};
 function T(){return L[(S&&S.settings.lang)||"ko"]}
 function post(o){window.webkit.messageHandlers.app.postMessage(o)}
 function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;
@@ -259,6 +260,7 @@ document.getElementById("l_hint").textContent=t.hint;
 document.getElementById("l_imp").textContent=t.imp;
 document.getElementById("l_pet").textContent=t.pet;
 document.getElementById("l_walk").textContent=t.walk;
+document.getElementById("l_pets").textContent=t.pets;
 document.getElementById("setclose").textContent=t.close;
 document.getElementById("l_pomo").textContent=t.pomo;
 document.getElementById("l_pw").textContent=t.pw;
@@ -275,6 +277,14 @@ document.getElementById("opv").textContent=op.value+"%";
 document.getElementById("impchk").checked=!!s.settings.import_events;
 document.getElementById("petchk").checked=!!s.settings.pet_enabled;
 document.getElementById("walkchk").checked=!!s.settings.pet_walk;
+const pp=document.getElementById("petpick");
+if(!pp.childElementCount)(s.pet_list||[]).forEach(([k,n])=>{const lb=el("label");
+const cb=document.createElement("input");cb.type="checkbox";cb.dataset.k=k;
+cb.style.cssText="accent-color:var(--acc);width:16px;height:16px;vertical-align:middle;margin-left:10px";
+cb.onchange=()=>{const on=[...pp.querySelectorAll("input")].filter(c=>c.checked).map(c=>c.dataset.k);
+if(!on.length){cb.checked=true;return}post({action:"setting",key:"pets",value:on})};
+lb.appendChild(cb);lb.appendChild(document.createTextNode(" "+n));pp.appendChild(lb)});
+pp.querySelectorAll("input").forEach(c=>c.checked=(s.settings.pets||[]).includes(c.dataset.k));
 const cal=document.getElementById("cal");cal.innerHTML="";
 if(s.cal_status==="none"){
 cal.appendChild(el("div","empty",t.nosrc));
@@ -292,7 +302,7 @@ b.onclick=()=>post({action:"connect"});cal.appendChild(b);
 const opn=document.getElementById("open");opn.innerHTML="";
 if(!s.open.length){
 const z=el("div","zerostate");
-const im=document.createElement("img");im.src="../assets/cat/cat.png";im.alt="";
+const im=document.createElement("img");im.src="../assets/pets/"+s.settings.pets[0]+"/cat.png";im.alt="";
 z.appendChild(im);z.appendChild(el("div","empty",t.noopen));
 opn.appendChild(z)}
 s.open.forEach(x=>opn.appendChild(todoRow(x,false)));

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate 16 walking frames from a sprite sheet.
-Usage: python3 tools/mkframes.py <sprite-sheet.png>   (8 frames in one row, walking right)"""
+Usage: python3 tools/mkframes.py <sprite-sheet.png> [cat]   (8 frames in one row, walking right; writes to assets/pets/<cat>/, default sprout)"""
 from AppKit import (NSImage, NSBitmapImageRep, NSGraphicsContext, NSColor,
                     NSCompositingOperationSourceOver, NSRectFill,
                     NSBitmapImageFileTypePNG, NSAffineTransform,
@@ -9,8 +9,10 @@ from Foundation import NSMakeRect
 from pathlib import Path
 from collections import deque
 
-HOME = Path(__file__).resolve().parents[1] / "assets" / "walk"   # output dir
 import sys
+HOME = (Path(__file__).resolve().parents[1] / "assets" / "pets"
+        / (sys.argv[2] if len(sys.argv) > 2 else "sprout"))   # output dir
+HOME.mkdir(parents=True, exist_ok=True)
 if len(sys.argv) < 2:
     sys.exit(__doc__)
 SRC = Path(sys.argv[1]).expanduser()

@@ -4,7 +4,7 @@
 ```
 ~/Applications/To-Do.app/Contents/MacOS/To-Do        zsh wrapper → exec To-Do-bin ~/.claude-todo/                                       repo root; code resolves ROOT = Path(__file__).parents[1]
    app/panel.py app/panel.html app/todo.py
-   assets/cat/{cat,pet_alert,pet_happy}[_flip].png  assets/walk/walk1..8[_flip].png  assets/pomo_zen.png  assets/singing-bowl.mp3
+   assets/pets/<cat>/{cat,pet_alert,pet_happy,walk1..8,loaf1..8}[_flip].png  assets/pomo_zen.png  assets/singing-bowl.mp3
    tools/mkframes.py tools/mksit.py                  install/setup.sh install/Info.plist install/AppIcon.icns install/*.plist
    state/  settings.json cal_cache.json imported.json eod.json events_state.json pomo_log.json panel.pid msal_cache.bin  (ignored)
 <vault>/Tracker/                                      vault path/name from config.json (no Obsidian → plain folder, files open with default app)

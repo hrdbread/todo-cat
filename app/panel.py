@@ -71,6 +71,11 @@ def jsave(p, obj):
 
 
 SETTINGS = HOME / "settings.json"
+# desktop cats: assets/pets/<key>/ → (name shown in Settings, pet window size in pt,
+# Pomodoro image under assets/ or None = just sit). The first one is the default.
+PETS = {"sprout": ("Sprout", (119, 108), "pomo_zen.png"),
+        "ham": ("Ham", (119, 108), None),
+        "sweetie": ("Sweetie", (108, 108), None)}
 
 
 def get_settings():
@@ -81,7 +86,9 @@ def get_settings():
             "pomo_work": int(c.get("pomo_work", 25)),
             "pomo_break": int(c.get("pomo_break", 5)),
             "pet_enabled": bool(c.get("pet_enabled", True)),
-            "pet_walk": bool(c.get("pet_walk", True))}
+            "pet_walk": bool(c.get("pet_walk", True)),
+            "pets": [k for k in c.get("pets", [next(iter(PETS))]) if k in PETS]
+            or [next(iter(PETS))]}
 
 
 def set_setting(k, v):
@@ -261,6 +268,7 @@ def build_state(cal_status):
         "pomo_today": pomo_today(),
         "cats": {k: v[0] for k, v in todo.CATS.items()},
         "cat_labels": labels,
+        "pet_list": [[k, v[0]] for k, v in PETS.items()],
         "open": [{"id": x["id"], "title": x["title"], "cat": x["category"]}
                  for x in sorted(open_t, key=lambda x: x["id"], reverse=True)],
         "closed": [{"id": x["id"], "title": x["title"], "cat": x["category"]}
@@ -332,6 +340,55 @@ def import_events_as_todos():
     jsave(IMPORTED, {"date": t, "ids": sorted(ids)})
 
 
+class Pet:
+    """One desktop cat: its window, images and animation state."""
+
+    def __init__(self, key, win, view, imgs, direction=1):
+        self.key, self.win, self.view, self.imgs = key, win, view, imgs
+        self.state = "idle"
+        self.dir = direction
+        self.step = 0
+        self.frame = 0
+        self.pause = 0.0
+        self.moving = False
+        self.timer = None
+        self.loaf = 0          # 0 = not loafing, 1..8 = loaf frame shown
+        self.loaf_dir = 0      # +1 settling down, -1 getting up, 0 = still
+        self.loaf_next = 0.0
+        self.pomo = False      # Pomodoro work session running
+
+    def apply_image(self):
+        if self.state == "idle" and self.pomo:
+            base = "zen"       # rule: Pomodoro → singing-bowl cat (cats without one just sit)
+        elif self.state == "idle" and self.loaf:
+            base = f"loaf{self.loaf}"
+        elif self.state == "idle" and self.moving:
+            base = f"walk{(self.frame % 8) + 1}"
+        else:
+            base = self.state
+        flip = "_flip" if self.dir < 0 else ""
+        key = base if base == "zen" else base + flip
+        img = self.imgs.get(key) or self.imgs.get(self.state + flip) or self.imgs.get(self.state)
+        if img is not None:
+            AppHelper.callAfter(lambda: self.view.setImage_(img))
+
+    def set(self, state, revert_sec=None):
+        self.state = state
+        if state != "idle":
+            self.loaf = self.loaf_dir = 0   # an expression interrupts the loaf
+        if revert_sec:
+            import time as _t
+            self.pause = _t.time() + revert_sec
+        self.apply_image()
+        if self.timer:
+            self.timer.cancel()
+            self.timer = None
+        if revert_sec:
+            self.timer = threading.Timer(revert_sec, lambda: self.set("idle"))
+            self.timer.daemon = True
+            self.timer.start()
+
+
 class Bridge(NSObject):
     def init(self):
         self = objc.super(Bridge, self).init()
@@ -339,18 +396,11 @@ class Bridge(NSObject):
         self.panel = None
         self.status = None
         self.pomo_text = ""
-        self.pet = None
-        self.petview = None
-        self.pet_imgs = {}
-        self.pet_timer = None
-        self.pet_state = "idle"
-        self.pet_dir = 1
-        self.pet_step = 0
-        self.pet_pause = 0.0
-        self.pet_frame = 0
-        self.pet_moving = False
+        self.pets = []                    # one Pet per cat in PETS (shown or not)
         self.pet_active_until = 0.0
         self.pomo_running = False
+        import time as _t
+        self.pet_last_touch = _t.time()   # last panel interaction
         self.cal_status = "connected" if cached_events() else "none"
         return self
 
@@ -365,34 +415,20 @@ class Bridge(NSObject):
                     self.pomo_text or f" {state['done']}/{state['total']}")
         AppHelper.callAfter(ui)
 
-    def apply_pet_image(self):
-        if self.pet_state == "idle" and self.pomo_running:
-            base = "zen"                     # rule: Pomodoro → singing-bowl cat, never walking
-        elif self.pet_state == "idle" and self.pet_moving:
-            base = f"walk{(self.pet_frame % 8) + 1}"
-        else:
-            base = self.pet_state
-        key = base + ("_flip" if self.pet_dir < 0 else "")
-        img = self.pet_imgs.get(key) or self.pet_imgs.get(self.pet_state)
-        if img is not None and self.petview is not None:
-            AppHelper.callAfter(lambda: self.petview.setImage_(img))
+    def active_pets(self):
+        chosen = get_settings()["pets"]
+        return [p for p in self.pets if p.key in chosen]
 
     def set_pet(self, state, revert_sec=None):
-        if self.petview is None:
-            return
-        self.pet_state = state
-        if revert_sec:
-            import time as _t
-            self.pet_pause = _t.time() + revert_sec
-        self.apply_pet_image()
-        if self.pet_timer:
-            self.pet_timer.cancel()
-            self.pet_timer = None
-        if revert_sec:
-            self.pet_timer = threading.Timer(
-                revert_sec, lambda: self.set_pet("idle"))
-            self.pet_timer.daemon = True
-            self.pet_timer.start()
+        for p in self.active_pets():
+            p.set(state, revert_sec)
+
+    def show_pets(self):
+        s = get_settings()
+        for p in self.pets:
+            on = s["pet_enabled"] and p.key in s["pets"]
+            AppHelper.callAfter(
+                lambda w=p.win, on=on: w.orderFrontRegardless() if on else w.orderOut_(None))
 
     def togglePanel_(self, sender):
         if self.panel.isVisible():
@@ -475,6 +511,10 @@ class Bridge(NSObject):
         if a not in ("state", "pomo_title", "refresh_cal"):
             import time as _t
             self.pet_active_until = _t.time() + 60   # walk for 60 s after any interaction
+            self.pet_last_touch = _t.time()
+            for p in self.pets:
+                if p.loaf or p.loaf_dir > 0:
+                    p.loaf_dir = -1                   # get up (loaf in reverse) before walking
         if a == "activity":
             return
         if a == "state":
@@ -508,27 +548,27 @@ class Bridge(NSObject):
                              daemon=True).start()
         elif a == "setting":
             k, v = str(b["key"]), b["value"]
+            if k == "pets":
+                v = [str(x) for x in v]   # JS array arrives as NSArray (not JSON-serialisable)
             set_setting(k, v)
             if k == "opacity":
                 AppHelper.callAfter(
                     lambda: self.panel.setAlphaValue_(float(v)))
-            if k == "pet_walk" and self.pet is not None:
-                AppHelper.callAfter(
-                    lambda: self.pet.setMovableByWindowBackground_(not v))
-            if k == "pet_enabled" and self.pet is not None:
-                if v:
+            if k == "pet_walk":
+                for p in self.pets:
                     AppHelper.callAfter(
-                        lambda: self.pet.orderFront_(None))
-                else:
-                    AppHelper.callAfter(
-                        lambda: self.pet.orderOut_(None))
+                        lambda w=p.win: w.setMovableByWindowBackground_(not v))
+            if k in ("pet_enabled", "pets"):
+                self.show_pets()
             self.push()
         elif a == "pomo_title":
             self.pomo_text = str(b.get("text", ""))
             running = self.pomo_text.startswith("🍅")   # work session (☕ = break)
             if running != self.pomo_running:
                 self.pomo_running = running
-                self.apply_pet_image()
+                for p in self.pets:
+                    p.pomo = running
+                    p.apply_image()
             if self.status is not None:
                 txt = self.pomo_text
                 AppHelper.callAfter(
@@ -708,8 +748,7 @@ def main():
     app.setMainMenu_(mm)
     panel.makeKeyAndOrderFront_(None)
 
-    # ── desktop pet ──
-    pw, ph = 119, 108
+    # ── desktop pets (one window per cat) ──
     # place inside the visible frame of the screen that holds the panel
     pf = panel.frame()
     tgt = NSScreen.mainScreen()
@@ -720,68 +759,71 @@ def main():
             tgt = sc
             break
     vf = tgt.visibleFrame()
-    px = min(max(pf.origin.x - pw - 14, vf.origin.x + 10),
-             vf.origin.x + vf.size.width - pw - 10)
-    py = min(max(pf.origin.y + 40, vf.origin.y + 10),
-             vf.origin.y + vf.size.height - ph - 10)
-    prect = NSMakeRect(px, py, pw, ph)
-    pet = Panel.alloc().initWithContentRect_styleMask_backing_defer_(
-        prect, NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel,
-        NSBackingStoreBuffered, False)
-    pet.setOpaque_(False)
-    pet.setBackgroundColor_(NSColor.clearColor())
-    pet.setLevel_(NSFloatingWindowLevel + 1)  # always above the panel
-    pet.setCollectionBehavior_(NSWindowCollectionBehaviorCanJoinAllSpaces |
-                               NSWindowCollectionBehaviorFullScreenAuxiliary)
-    pet.setHidesOnDeactivate_(False)
-    pet.setMovableByWindowBackground_(not get_settings()["pet_walk"])
-    pet.setHasShadow_(False)
-    if pet.setFrameUsingName_("catPet3"):
-        sf = pet.frame()
-        ok = any((sc.visibleFrame().origin.x - 5 <= sf.origin.x
-                  and sf.origin.x + sf.size.width
-                  <= sc.visibleFrame().origin.x + sc.visibleFrame().size.width + 5
-                  and sc.visibleFrame().origin.y - 5 <= sf.origin.y
-                  and sf.origin.y + sf.size.height
-                  <= sc.visibleFrame().origin.y + sc.visibleFrame().size.height + 5)
-                 for sc in NSScreen.screens())
-        if not ok:
+    for i, (key, (_name, (pw, ph), zen)) in enumerate(PETS.items()):
+        px = min(max(pf.origin.x - pw - 14 - i * 60, vf.origin.x + 10),
+                 vf.origin.x + vf.size.width - pw - 10)
+        py = min(max(pf.origin.y + 40, vf.origin.y + 10),
+                 vf.origin.y + vf.size.height - ph - 10)
+        prect = NSMakeRect(px, py, pw, ph)
+        pet = Panel.alloc().initWithContentRect_styleMask_backing_defer_(
+            prect, NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel,
+            NSBackingStoreBuffered, False)
+        pet.setOpaque_(False)
+        pet.setBackgroundColor_(NSColor.clearColor())
+        pet.setLevel_(NSFloatingWindowLevel + 1)  # always above the panel
+        pet.setCollectionBehavior_(NSWindowCollectionBehaviorCanJoinAllSpaces |
+                                   NSWindowCollectionBehaviorFullScreenAuxiliary)
+        pet.setHidesOnDeactivate_(False)
+        pet.setMovableByWindowBackground_(not get_settings()["pet_walk"])
+        pet.setHasShadow_(False)
+        autosave = "catPet3" if i == 0 else f"catPet3_{key}"   # default cat keeps its saved spot
+        if pet.setFrameUsingName_(autosave):
+            sf = pet.frame()
+            ok = any((sc.visibleFrame().origin.x - 5 <= sf.origin.x
+                      and sf.origin.x + pw
+                      <= sc.visibleFrame().origin.x + sc.visibleFrame().size.width + 5
+                      and sc.visibleFrame().origin.y - 5 <= sf.origin.y
+                      and sf.origin.y + ph
+                      <= sc.visibleFrame().origin.y + sc.visibleFrame().size.height + 5)
+                     for sc in NSScreen.screens())
+            pet.setFrame_display_(NSMakeRect(sf.origin.x, sf.origin.y, pw, ph)
+                                  if ok else prect, True)
+        else:
             pet.setFrame_display_(prect, True)
-    else:
-        pet.setFrame_display_(prect, True)
-    pet.setFrameAutosaveName_("catPet3")
-    pv = NSImageView.alloc().initWithFrame_(pet.contentView().bounds())
-    pv.setAutoresizingMask_(18)
-    pv.setImageScaling_(3)  # proportionally up-or-down
-    imgs = {}
-    for key, fn in (("idle", "cat.png"), ("alert", "pet_alert.png"),
-                    ("happy", "pet_happy.png"),
-                    ("idle_flip", "cat_flip.png"),
-                    ("alert_flip", "pet_alert_flip.png"),
-                    ("happy_flip", "pet_happy_flip.png"),
-                    *[(f"walk{i}", f"walk{i}.png") for i in range(1, 9)],
-                    *[(f"walk{i}_flip", f"walk{i}_flip.png")
-                      for i in range(1, 9)],
-                    ("zen", "pomo_zen.png")):
-        sub = "walk" if fn.startswith("walk") else ("" if fn.startswith("pomo") else "cat")
-        im = NSImage.alloc().initWithContentsOfFile_(str(ASSETS / sub / fn))
-        if im:
-            imgs[key] = im
-    if "idle" in imgs:
-        pv.setImage_(imgs["idle"])
-    pet.contentView().addSubview_(pv)
-    bridge.pet = pet
-    bridge.petview = pv
-    bridge.pet_imgs = imgs
-    if get_settings()["pet_enabled"]:
-        pet.orderFrontRegardless()
-    fr = pet.frame()
-    print(f"[pet] frame=({fr.origin.x:.0f},{fr.origin.y:.0f} "
-          f"{fr.size.width:.0f}x{fr.size.height:.0f}) imgs={list(imgs)}",
-          file=sys.stderr)
+        pet.setFrameAutosaveName_(autosave)
+        pv = NSImageView.alloc().initWithFrame_(pet.contentView().bounds())
+        pv.setAutoresizingMask_(18)
+        pv.setImageScaling_(3)  # proportionally up-or-down
+        imgs = {}
+        for ik, fn in (("idle", "cat.png"), ("alert", "pet_alert.png"),
+                       ("happy", "pet_happy.png"),
+                       ("idle_flip", "cat_flip.png"),
+                       ("alert_flip", "pet_alert_flip.png"),
+                       ("happy_flip", "pet_happy_flip.png"),
+                       *[(f"walk{j}", f"walk{j}.png") for j in range(1, 9)],
+                       *[(f"walk{j}_flip", f"walk{j}_flip.png") for j in range(1, 9)],
+                       *[(f"loaf{j}", f"loaf{j}.png") for j in range(1, 9)],
+                       *[(f"loaf{j}_flip", f"loaf{j}_flip.png") for j in range(1, 9)]):
+            im = NSImage.alloc().initWithContentsOfFile_(str(ASSETS / "pets" / key / fn))
+            if im:
+                imgs[ik] = im
+        if zen:
+            im = NSImage.alloc().initWithContentsOfFile_(str(ASSETS / zen))
+            if im:
+                imgs["zen"] = im
+        if "idle" in imgs:
+            pv.setImage_(imgs["idle"])
+        pet.contentView().addSubview_(pv)
+        bridge.pets.append(Pet(key, pet, pv, imgs, direction=1 if i % 2 == 0 else -1))
+        fr = pet.frame()
+        print(f"[pet] {key} frame=({fr.origin.x:.0f},{fr.origin.y:.0f} "
+              f"{fr.size.width:.0f}x{fr.size.height:.0f}) imgs={len(imgs)}",
+              file=sys.stderr)
+    bridge.show_pets()
 
     def walker():
         import time as _t
+        LOAF_AFTER = 300   # seconds without panel use before the cats settle into a loaf
         while True:
             _t.sleep(0.07)
             try:
@@ -791,59 +833,85 @@ def main():
                     continue
                 if not panel.isVisible():
                     continue
-                if _t.time() < bridge.pet_pause:
-                    if bridge.pet_moving:
-                        bridge.pet_moving = False
-                        bridge.apply_pet_image()
-                    continue
-                pf = panel.frame()
-                cf = pet.frame()
-                left = pf.origin.x + 6
-                right = pf.origin.x + pf.size.width - cf.size.width - 6
-                if right <= left:
-                    continue
-                if _t.time() > bridge.pet_active_until or bridge.pomo_running:
-                    # idle or Pomodoro running: sit still, follow the panel if it moves
-                    if bridge.pet_moving:
-                        bridge.pet_moving = False
-                        bridge.apply_pet_image()
-                    sx = min(max(cf.origin.x, left), right)
-                    sy = pf.origin.y + pf.size.height - 5
-                    if abs(sx - cf.origin.x) > 0.5 or abs(sy - cf.origin.y) > 0.5:
-                        AppHelper.callAfter(
-                            lambda x=sx, y=sy: pet.setFrameOrigin_((x, y)))
-                    continue
-                if not bridge.pet_moving:
-                    bridge.pet_moving = True
-                    bridge.apply_pet_image()
-                nx = cf.origin.x + bridge.pet_dir * 3.6
-                if nx < left:
-                    nx, bridge.pet_dir = left, 1
-                    bridge.apply_pet_image()
-                elif nx > right:
-                    nx, bridge.pet_dir = right, -1
-                    bridge.apply_pet_image()
-                bridge.pet_step = (bridge.pet_step + 1) % 8
-                nf = bridge.pet_step
-                if nf != bridge.pet_frame:
-                    bridge.pet_frame = nf
-                    bridge.apply_pet_image()
-                bob = -1 if bridge.pet_step in (2, 3, 6, 7) else 0
-                ny = pf.origin.y + pf.size.height - 5 + bob
-                # if the panel hugs the top edge, lower the cat so it stays fully visible
-                for sc in NSScreen.screens():
-                    v = sc.visibleFrame()
-                    if (v.origin.x <= pf.origin.x < v.origin.x + v.size.width
-                            and v.origin.y <= pf.origin.y + pf.size.height
-                            <= v.origin.y + v.size.height + 1):
-                        top = v.origin.y + v.size.height
-                        if ny + cf.size.height > top:
-                            ny = top - cf.size.height
-                        break
-                AppHelper.callAfter(
-                    lambda x=nx, y=ny: pet.setFrameOrigin_((x, y)))
+                pets_on = bridge.active_pets()
+                for n, p in enumerate(pets_on):
+                    step_pet(p, pets_on[:n], _t.time(), LOAF_AFTER)
             except Exception:
                 pass
+
+    def step_pet(p, before, now, loaf_after):
+        """One animation tick for one cat. `before` = cats earlier in the list (they have right of way)."""
+        if now < p.pause:
+            if p.moving:
+                p.moving = False
+                p.apply_image()
+            return
+        pf = panel.frame()
+        cf = p.win.frame()
+        left = pf.origin.x + 6
+        right = pf.origin.x + pf.size.width - cf.size.width - 6
+        if right <= left:
+            return
+        if (not p.loaf and not p.loaf_dir and not p.pomo
+                and p.state == "idle" and now > bridge.pet_active_until
+                and now - bridge.pet_last_touch > loaf_after):
+            p.loaf_dir = 1
+        if p.loaf_dir and now >= p.loaf_next:
+            p.loaf = min(max(p.loaf + p.loaf_dir, 0), 8)
+            settling = p.loaf_dir > 0
+            if p.loaf in (0, 8):
+                p.loaf_dir = 0
+                print(f"[pet] {p.key} " + ("loafing" if p.loaf else "up"), file=sys.stderr)
+            p.loaf_next = now + (0.25 if settling else 0.12)
+            p.apply_image()
+        # sitting on top of another cat? keep walking until there is space (if the panel has room)
+        crowded = False
+        if not p.loaf and not p.loaf_dir and before:
+            room = pf.size.width - 12 > cf.size.width + sum(o.win.frame().size.width for o in before)
+            for o in before:
+                of = o.win.frame()
+                if (room and abs((cf.origin.x + cf.size.width / 2) - (of.origin.x + of.size.width / 2))
+                        < (cf.size.width + of.size.width) * 0.35):
+                    crowded = True
+        if (now > bridge.pet_active_until and not crowded) or p.pomo or p.loaf or p.loaf_dir:
+            # idle, Pomodoro or loaf: sit still, follow the panel if it moves
+            if p.moving:
+                p.moving = False
+                p.apply_image()
+            sx = min(max(cf.origin.x, left), right)
+            sy = pf.origin.y + pf.size.height - 5
+            if abs(sx - cf.origin.x) > 0.5 or abs(sy - cf.origin.y) > 0.5:
+                AppHelper.callAfter(
+                    lambda w=p.win, x=sx, y=sy: w.setFrameOrigin_((x, y)))
+            return
+        if not p.moving:
+            p.moving = True
+            p.apply_image()
+        nx = cf.origin.x + p.dir * 3.6
+        if nx < left:
+            nx, p.dir = left, 1
+            p.apply_image()
+        elif nx > right:
+            nx, p.dir = right, -1
+            p.apply_image()
+        p.step = (p.step + 1) % 8
+        if p.step != p.frame:
+            p.frame = p.step
+            p.apply_image()
+        bob = -1 if p.step in (2, 3, 6, 7) else 0
+        ny = pf.origin.y + pf.size.height - 5 + bob
+        # if the panel hugs the top edge, lower the cat so it stays fully visible
+        for sc in NSScreen.screens():
+            v = sc.visibleFrame()
+            if (v.origin.x <= pf.origin.x < v.origin.x + v.size.width
+                    and v.origin.y <= pf.origin.y + pf.size.height
+                    <= v.origin.y + v.size.height + 1):
+                top = v.origin.y + v.size.height
+                if ny + cf.size.height > top:
+                    ny = top - cf.size.height
+                break
+        AppHelper.callAfter(
+            lambda w=p.win, x=nx, y=ny: w.setFrameOrigin_((x, y)))
     threading.Thread(target=walker, daemon=True).start()
 
     def scheduler():

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Sitting-cat artwork → cat.png / pet_alert.png / pet_happy.png (+flip)
-   Usage: python3 tools/mksit.py <sitting-cat.png>
+   Usage: python3 tools/mksit.py <sitting-cat.png> [cat]   (writes to assets/pets/<cat>/, default sprout)
    Writes pixels directly into NSBitmapImageRep (no lockFocus, guaranteed RGBA)."""
 from AppKit import (NSImage, NSBitmapImageRep, NSGraphicsContext, NSColor,
                     NSCompositingOperationSourceOver, NSRectFill, NSBezierPath,
@@ -11,8 +11,10 @@ from pathlib import Path
 from collections import deque
 import math
 
-HOME = Path(__file__).resolve().parents[1] / "assets" / "cat"    # output dir
 import sys
+HOME = (Path(__file__).resolve().parents[1] / "assets" / "pets"
+        / (sys.argv[2] if len(sys.argv) > 2 else "sprout"))   # output dir
+HOME.mkdir(parents=True, exist_ok=True)
 if len(sys.argv) < 2:
     sys.exit(__doc__)
 SRC = Path(sys.argv[1]).expanduser()
