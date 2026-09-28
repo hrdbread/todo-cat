@@ -9,14 +9,14 @@ Open-source personal productivity app (GitHub `hyojinyang-ai/todo-cat`), usually
 
 ## Product rules (decided by the user — do not "improve" them away)
 1. **A Pomodoro means the cat sits with the singing bowl.** While a work session runs, both the Pomodoro page and the desktop pet show the singing-bowl cat (`assets/pomo_zen.png`, gently swaying with floating notes on the page). The walk cycle is reserved for to-do activity only; it never plays during a Pomodoro.
-2. The pet sits idle on the panel and walks only for 60 s after a to-do interaction (add/complete/edit/click/typing). Pomodoro ticks and calendar refreshes are not activity.
+2. The pet sits idle on the panel and walks only for 60 s after a to-do interaction (add/complete/edit/click/typing). Pomodoro ticks and calendar refreshes are not activity. After `loaf_after` (config, default 5 min) without panel use, cats that have loaf frames settle into a loaf and get up on the next interaction — idle cats never start walking on their own.
 3. Obsidian output (Daily Log, Dashboard, retro) is bilingual ko/en; the UI follows the language setting.
 
 ## What it is (30 seconds)
 - **Floating panel** (`app/panel.py` + `app/panel.html`): always-on-top, all Spaces, non-activating. Pages: Todo / Pomodoro / Settings (ko·en).
 - **Data core** (`app/todo.py`): tasks in `<vault>/Tracker/tasks.json` (vault from `config.json`); writes Obsidian **Daily Log / Monthly / Dashboard / Retros**.
 - **Automation** (scheduler thread in `app/panel.py`): 08:00 Outlook events → Meeting todos; 18:00 bilingual AI retro + log/dashboard refresh; midnight rollover; 15-min calendar refresh.
-- **Cat pet**: transparent window above the panel; sits when idle, walks 60 s after any interaction; expressions on add/done. Pomodoro page reuses the frames.
+- **Cat pets**: one transparent window per chosen cat (Settings → Cats) above the panel; sits when idle, walks 60 s after any interaction, loafs after `loaf_after`; expressions on add/done. Cats are auto-discovered from `assets/pets/<cat>/` (only `sprout/` ships; other folders are git-ignored cat packs).
 - **App identity**: `~/Applications/To-Do.app` (bundle id `com.todocat.app`), LaunchAgent `com.todocat.panel`, menu bar item, Dock icon.
 
 Read `references/architecture.md` before editing code. Read `references/pitfalls.md` before touching images, permissions, or the app bundle — every item there cost real debugging time.
@@ -43,9 +43,9 @@ git clone https://github.com/hyojinyang-ai/todo-cat ~/.claude-todo && ~/.claude-
 | Daily Log / Dashboard / Monthly format | `app/todo.py` `write_daily_log`, `write_dashboard`, `write_monthly_page`, `write_heatmap_svg` |
 | Retro prompt / language | `app/todo.py` `retro()` (single call, ko then `---` then en; preserves user notes) |
 | Schedules (08:00, 18:00, rollover) | `app/panel.py` `scheduler()`; markers `state/imported.json`, `state/eod.json` |
-| Pet behaviour / speed / frames | `app/panel.py` `walker()`, `Bridge.set_pet/apply_pet_image`; frames via `tools/mkframes.py`, `tools/mksit.py` → `assets/{walk,cat}/` |
+| Pet behaviour / speed / frames | `app/panel.py` `walker()`/`step_pet()`, `Pet.apply_image/set`, `discover_pets()`; frames via `tools/mkframes.py`, `tools/mksit.py` → `assets/pets/<cat>/` |
 | Calendar source | `app/panel.py` `do_fetch` (ICS → EventKit → Graph) |
-| Sound / images | `assets/` (cat/, walk/, pomo_zen.png, singing-bowl.mp3); originals stay in `~/Downloads` |
+| Sound / images | `assets/` (pets/<cat>/, pomo_zen.png, singing-bowl.mp3); originals stay in `~/Downloads` |
 
 ## Images: the only safe workflow
 Ask the user to place source images in `~/Downloads` and give you the path — never move pixels through chat (base64 broke alpha twice). Process on the Mac with `NSBitmapImageRep` + `setColor_atX_y_` (see `tools/mksit.py`, `tools/mkframes.py`), keep **RGBA PNG**, verify visually. Details in `references/pitfalls.md`.

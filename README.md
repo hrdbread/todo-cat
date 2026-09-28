@@ -34,12 +34,13 @@ Paths inside the app are resolved from the file location (`ROOT = parents[1]`), 
 `install/setup.sh` writes `config.json` (git-ignored) at the repo root:
 ```json
 { "vault_path": "~/Documents/MyVault", "vault_name": "MyVault",
-  "lang": "en", "import_hour": 8, "eod_hour": 18, "claude_bin": "" }
+  "lang": "en", "import_hour": 8, "eod_hour": 18, "loaf_after": 300, "claude_bin": "" }
 ```
 - `vault_path` — where `Tracker/` (tasks, logs, retros, dashboard) is written. Any folder works; with an Obsidian vault the links and embeds come alive.
 - `vault_name` — Obsidian vault name for `obsidian://` deep links; leave empty to open files with the default Markdown app.
 - `lang` — default UI language (`en` / `ko`), changeable in Settings.
 - `import_hour` / `eod_hour` — when events become tasks and when the day auto-closes.
+- `loaf_after` — seconds without panel use before cats with loaf frames settle into a loaf (default 300).
 - `claude_bin` — path to the Claude Code CLI if it is not on `PATH` (AI retro only).
 
 ## Data (not in the repo)
@@ -53,8 +54,12 @@ git clone https://github.com/hyojinyang-ai/todo-cat ~/.claude-todo && ~/.claude-
 ```
 The installer detects your Obsidian vaults, writes `config.json`, builds `~/Applications/To-Do.app`, and registers it to launch at login. Then add your calendar account in System Settings → Internet Accounts (calendar on), click **Re-check calendar source** in the panel and allow calendar access.
 
-### Regenerating the cat
-Each cat lives in `assets/pets/<cat>/` and is listed in `PETS` in `app/panel.py` (name, window size, optional Pomodoro image). To swap in your own cat: `python3 tools/mksit.py <sitting-cat.png> <cat>` and `python3 tools/mkframes.py <walk-sprite-sheet.png> <cat>` (8 frames in a row, walking right). White backgrounds become transparent automatically. Both tools have the frame/eye positions of their source artwork hard-coded — measure yours and adjust them. Loaf frames (`loaf1..8`, sitting → loaf) are optional; without them the cat just keeps sitting.
+### Adding your own cat
+Every folder in `assets/pets/` that contains a `cat.png` shows up in Settings → Cats — no code change. Only `sprout/` ships with the repo; other folders are git-ignored, so cat packs can live in their own repos and be dropped in.
+
+A cat folder holds (all RGBA PNG, each with a mirrored `_flip` copy): `cat`, `pet_alert`, `pet_happy` (sitting + expressions) and `walk1..8` (walking right). Optional: `loaf1..8` (sitting → loaf; without them the cat just keeps sitting) and `pomo.png` (shown during a Pomodoro; without it the cat just sits). The pet window is 108 pt tall and as wide as the widest frame.
+
+To build Sprout-style frames from artwork: `python3 tools/mksit.py <sitting-cat.png> <cat>` and `python3 tools/mkframes.py <walk-sprite-sheet.png> <cat>` (8 frames in a row, walking right). White backgrounds become transparent automatically. Both tools have the frame/eye positions of Sprout's source artwork hard-coded — measure yours and adjust them.
 
 ## Maintaining with Claude
 `skill/todo-cat/` is a Claude skill (Claude.ai Projects / Claude Code). Loaded in a fresh conversation, Claude already knows the install and deploy procedure, the architecture and the list of pitfalls.

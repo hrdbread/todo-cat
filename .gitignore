@@ -15,3 +15,7 @@ __pycache__/
 /*.bin
 
 !config.example.json
+
+# extra cats (e.g. cat packs) — only the original cat ships with the repo
+assets/pets/*
+!assets/pets/sprout/

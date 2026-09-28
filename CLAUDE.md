@@ -7,7 +7,7 @@ Reply in the user's language, concisely. When a request has several readings, of
 
 ## Product rules (decided by the user — do not "improve" them away)
 1. **A Pomodoro means the cat sits with the singing bowl.** While a work session runs, both the Pomodoro page and the desktop pet show the singing-bowl cat (`assets/pomo_zen.png`, gently swaying with floating notes on the page). The walk cycle is reserved for to-do activity only; it never plays during a Pomodoro.
-2. The pet sits idle on the panel and walks only for 60 s after a to-do interaction (add/complete/edit/click/typing). Pomodoro ticks and calendar refreshes are not activity.
+2. The pet sits idle on the panel and walks only for 60 s after a to-do interaction (add/complete/edit/click/typing). Pomodoro ticks and calendar refreshes are not activity. After `loaf_after` (config, default 5 min) without panel use, cats that have loaf frames settle into a loaf and get up on the next interaction — idle cats never start walking on their own.
 3. Obsidian output (Daily Log, Dashboard, retro) is bilingual ko/en; the UI follows the language setting.
 
 ## Locations
@@ -18,7 +18,7 @@ Reply in the user's language, concisely. When a request has several readings, of
 - Data (not in repo): `<vault>/Tracker/tasks.json`, `Tracker/{Log,Monthly,Retros}/`, `Dashboard.md`; settings/caches `~/.claude-todo/state/`
 - Source images live in `~/Downloads`; ask for the path and process on the Mac. Never move pixels through chat (base64 corrupted files twice, wastes tokens).
 
-## Files (repo layout: `app/` code · `assets/pets/<cat>/` images (one folder per cat, listed in `PETS` in panel.py) · `tools/` generators · `install/` bundle + setup · `state/` runtime, ignored)
+## Files (repo layout: `app/` code · `assets/pets/<cat>/` images (one folder per cat, auto-discovered; only `sprout/` is tracked) · `tools/` generators · `install/` bundle + setup · `state/` runtime, ignored)
 - `app/panel.py` app: `Bridge` (JS↔Python actions), panel + pet windows, status item, main menu, `walker()` (pet), `scheduler()` (midnight rollover · 08:00 import · 18:00 end-of-day · 15-min calendar refresh)
 - `app/panel.html` single-file UI (asset URLs are `../assets/...`): three pages (todo / pomodoro / settings), `L` object for ko·en i18n, `post({action})` → Python, `render(state)` ← Python
 - `app/todo.py` data core + `write_daily_log` / `write_monthly_page` / `write_dashboard` / `write_heatmap_svg` + `retro()` (`claude -p`, bilingual) + `run_eod()` + `dashboard()`. Categories in `CATS` (name → (color, Korean label)); vault/schedule from `CFG`

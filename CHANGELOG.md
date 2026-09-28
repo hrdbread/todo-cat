@@ -4,12 +4,12 @@ Everything here was built pair-programming with Claude. Dates are actual working
 
 ## 2026-09-28
 ### Added
-- **Choose your cats**: Settings → Cats shows one or more cats on the panel. Built in: Sprout (the original, default), plus Ham and Sweetie as optional extras. Each cat has its own window, position, direction and loaf state; with several shown they pass each other while walking and don't end up sitting on top of each other.
-- **Loaf**: after 5 minutes without clicking or typing in the panel, cats that have loaf frames settle into a loaf (8 frames, ~2 s) and get up again (reverse, ~1 s) on the next panel interaction. Adding/completing a task interrupts the loaf with the alert/happy face. No loaf during a Pomodoro. Sprout has no loaf frames yet, so it simply keeps sitting.
+- **Choose your cats**: Settings → Cats shows one or more cats on the panel. Cats are auto-discovered: every `assets/pets/<cat>/` folder with a `cat.png` is a cat (name from the folder, window size from the widest frame, optional `pomo.png`). Only Sprout ships with the repo; other folders are git-ignored so cat packs can be dropped in. Each cat has its own window, position, direction and loaf state.
+- **Loaf**: after `loaf_after` seconds (config, default 300) without clicking or typing in the panel, cats that have loaf frames settle into a loaf (8 frames, ~2 s) and get up again (reverse, ~1 s) on the next panel interaction. Adding/completing a task interrupts the loaf with the alert/happy face. No loaf during a Pomodoro.
 
 ### Changed
 - **Rule: a Pomodoro shows the singing-bowl cat, never the walking cat.** Pomodoro page now animates the sitting cat (gentle sway + floating notes) instead of the walk cycle; the desktop pet also sits with the bowl for the whole work session. Recorded as product rule #1 in CLAUDE.md / SKILL.md.
-- Cat artwork moved to `assets/pets/<cat>/` (same file names per cat: `cat`, `pet_alert`, `pet_happy`, `walk1..8`, optional `loaf1..8`, each with `_flip`). Cats are listed in `PETS` in `app/panel.py` (name, window size, Pomodoro image). The Pomodoro rule applies to every cat: the default cat shows the singing-bowl cat, cats without a Pomodoro image just sit. `tools/mksit.py` / `tools/mkframes.py` take the cat folder as a second argument.
+- Cat artwork moved to `assets/pets/<cat>/` (same file names per cat: `cat`, `pet_alert`, `pet_happy`, `walk1..8`, optional `loaf1..8`, each with `_flip`). The Pomodoro rule applies to every cat: the default cat shows the singing-bowl cat, cats without a Pomodoro image just sit. `tools/mksit.py` / `tools/mkframes.py` take the cat folder as a second argument.
 
 ## 2026-09-25
 ### Fixed

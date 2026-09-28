@@ -4,5 +4,6 @@
   "lang": "en",
   "import_hour": 8,
   "eod_hour": 18,
+  "loaf_after": 300,
   "claude_bin": ""
 }

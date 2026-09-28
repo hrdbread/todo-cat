@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / "state"
 CONFIG_FILE = ROOT / "config.json"
 DEFAULTS = {"vault_path": "~/Documents/todo-cat", "vault_name": "", "lang": "en",
-            "import_hour": 8, "eod_hour": 18, "claude_bin": ""}
+            "import_hour": 8, "eod_hour": 18, "claude_bin": "", "loaf_after": 300}
 
 
 def load_config():

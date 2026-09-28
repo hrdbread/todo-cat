@@ -50,7 +50,7 @@ PYEOF
   "$PY" - "$HERE/config.json" "$VPATH" "$VNAME" "$lang" <<'PYEOF'
 import json, sys
 cfg = {"vault_path": sys.argv[2], "vault_name": sys.argv[3], "lang": sys.argv[4],
-       "import_hour": 8, "eod_hour": 18, "claude_bin": ""}
+       "import_hour": 8, "eod_hour": 18, "claude_bin": "", "loaf_after": 300}
 json.dump(cfg, open(sys.argv[1], "w"), indent=2)
 print("  wrote config.json →", cfg["vault_path"])
 PYEOF

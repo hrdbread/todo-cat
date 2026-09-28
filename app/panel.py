@@ -71,11 +71,31 @@ def jsave(p, obj):
 
 
 SETTINGS = HOME / "settings.json"
-# desktop cats: assets/pets/<key>/ → (name shown in Settings, pet window size in pt,
-# Pomodoro image under assets/ or None = just sit). The first one is the default.
-PETS = {"sprout": ("Sprout", (119, 108), "pomo_zen.png"),
-        "ham": ("Ham", (119, 108), None),
-        "sweetie": ("Sweetie", (108, 108), None)}
+
+
+def _png_size(p):
+    b = p.read_bytes()[16:24]            # PNG IHDR: width, height (big-endian)
+    return int.from_bytes(b[:4], "big"), int.from_bytes(b[4:], "big")
+
+
+def discover_pets():
+    """Every folder in assets/pets/ with a cat.png is a cat → {key: (name, window size in pt,
+    Pomodoro image under assets/ or None = just sit)}. Sprout (the original) comes first = default."""
+    found = {}
+    for f in sorted((ASSETS / "pets").glob("*/cat.png"),
+                    key=lambda f: (f.parent.name != "sprout", f.parent.name)):
+        d = f.parent
+        # window: 108 pt tall, wide enough for the widest frame (sitting / walking / loaf)
+        w = max(sw * 108 / sh for sw, sh in (_png_size(d / n) for n in
+                ("cat.png", "walk1.png", "loaf1.png") if (d / n).exists()))
+        pomo = (f"pets/{d.name}/pomo.png" if (d / "pomo.png").exists()
+                else "pomo_zen.png" if d.name == "sprout" else None)
+        found[d.name] = (d.name.replace("_", " ").replace("-", " ").title(), (round(w), 108), pomo)
+    return found
+
+
+PETS = discover_pets()
+DEFAULT_PETS = list(PETS)[:1]
 
 
 def get_settings():
@@ -87,8 +107,7 @@ def get_settings():
             "pomo_break": int(c.get("pomo_break", 5)),
             "pet_enabled": bool(c.get("pet_enabled", True)),
             "pet_walk": bool(c.get("pet_walk", True)),
-            "pets": [k for k in c.get("pets", [next(iter(PETS))]) if k in PETS]
-            or [next(iter(PETS))]}
+            "pets": [k for k in c.get("pets", DEFAULT_PETS) if k in PETS] or DEFAULT_PETS}
 
 
 def set_setting(k, v):
@@ -396,7 +415,7 @@ class Bridge(NSObject):
         self.panel = None
         self.status = None
         self.pomo_text = ""
-        self.pets = []                    # one Pet per cat in PETS (shown or not)
+        self.pets = []                    # one Pet per cat found in assets/pets/ (shown or not)
         self.pet_active_until = 0.0
         self.pomo_running = False
         import time as _t
@@ -823,7 +842,7 @@ def main():
 
     def walker():
         import time as _t
-        LOAF_AFTER = 300   # seconds without panel use before the cats settle into a loaf
+        LOAF_AFTER = int(todo.CFG["loaf_after"])   # seconds without panel use before a loaf
         while True:
             _t.sleep(0.07)
             try:
@@ -834,13 +853,13 @@ def main():
                 if not panel.isVisible():
                     continue
                 pets_on = bridge.active_pets()
-                for n, p in enumerate(pets_on):
-                    step_pet(p, pets_on[:n], _t.time(), LOAF_AFTER)
+                for p in pets_on:
+                    step_pet(p, _t.time(), LOAF_AFTER)
             except Exception:
                 pass
 
-    def step_pet(p, before, now, loaf_after):
-        """One animation tick for one cat. `before` = cats earlier in the list (they have right of way)."""
+    def step_pet(p, now, loaf_after):
+        """One animation tick for one cat."""
         if now < p.pause:
             if p.moving:
                 p.moving = False
@@ -852,7 +871,7 @@ def main():
         right = pf.origin.x + pf.size.width - cf.size.width - 6
         if right <= left:
             return
-        if (not p.loaf and not p.loaf_dir and not p.pomo
+        if ("loaf1" in p.imgs and not p.loaf and not p.loaf_dir and not p.pomo
                 and p.state == "idle" and now > bridge.pet_active_until
                 and now - bridge.pet_last_touch > loaf_after):
             p.loaf_dir = 1
@@ -864,16 +883,7 @@ def main():
                 print(f"[pet] {p.key} " + ("loafing" if p.loaf else "up"), file=sys.stderr)
             p.loaf_next = now + (0.25 if settling else 0.12)
             p.apply_image()
-        # sitting on top of another cat? keep walking until there is space (if the panel has room)
-        crowded = False
-        if not p.loaf and not p.loaf_dir and before:
-            room = pf.size.width - 12 > cf.size.width + sum(o.win.frame().size.width for o in before)
-            for o in before:
-                of = o.win.frame()
-                if (room and abs((cf.origin.x + cf.size.width / 2) - (of.origin.x + of.size.width / 2))
-                        < (cf.size.width + of.size.width) * 0.35):
-                    crowded = True
-        if (now > bridge.pet_active_until and not crowded) or p.pomo or p.loaf or p.loaf_dir:
+        if now > bridge.pet_active_until or p.pomo or p.loaf or p.loaf_dir:
             # idle, Pomodoro or loaf: sit still, follow the panel if it moves
             if p.moving:
                 p.moving = False
