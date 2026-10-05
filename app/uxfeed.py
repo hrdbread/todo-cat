@@ -77,8 +77,22 @@ def parse(raw):
             "parent": str(c.get("RELATED-TO", "") or ""),
             "check_id": str(c.get("X-UXINBOX-CHECK", "") or ""),
             "group": str(c.get("X-UXINBOX-GROUP", "") or ""),
+            "links": _links(c),
         })
     return designer, out
+
+
+def _links(c):
+    """X-UXINBOX-LINK;X-LABEL="…":url lines → [{label, url}], http(s) only."""
+    v = c.get("X-UXINBOX-LINK")
+    if v is None:
+        return []
+    out = []
+    for x in (v if isinstance(v, list) else [v]):
+        u = str(x).strip()
+        if u.startswith(("https://", "http://")):
+            out.append({"label": str(x.params.get("X-LABEL", "") or "Link"), "url": u})
+    return out
 
 
 def fallback_path(feed, folder):
@@ -123,7 +137,7 @@ def sync(db, designer, todos):
     todos = [f for f in todos if f["kind"] != "check"]
     for f in todos:
         seen.add(f["uid"])
-        meta = {k: f[k] for k in ("kind", "item_id", "suggested", "study_id", "finding_id")}
+        meta = {k: f[k] for k in ("kind", "item_id", "suggested", "study_id", "finding_id", "links")}
         t = mine.get(f["uid"])
         if t is None:
             if f["completed"]:

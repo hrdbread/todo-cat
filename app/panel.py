@@ -379,6 +379,8 @@ def task_view(x):
     v = {"id": x["id"], "title": x["title"], "cat": x["category"]}
     if x.get("source") == uxfeed.SOURCE:
         v.update(src=uxfeed.SOURCE, url=x.get("url", ""), kind=x.get("kind", "item"), tick_error=x.get("tick_error", ""))
+        if x.get("links"):
+            v.update(expanded=bool(x.get("expanded")), links=x["links"])
         if x.get("subtasks"):
             v.update(expanded=bool(x.get("expanded")),
                      subs=[{"uid": s["uid"], "title": s["title"], "group": s.get("group", ""), "done": bool(s["done"]),

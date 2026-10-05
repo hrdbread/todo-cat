@@ -113,5 +113,11 @@ check("tick a sub-task → check.marked with the item and criterion", e["type"] 
 u = uxfeed.tick_back_check(p, p["subtasks"][0], False, folder=str(inbox))
 check("untick → check.undone naming it", u["type"] == "check.undone" and u["payload"] == {"undoes": e["id"]})
 
+# ── links on the to-do ──
+_, lt = uxfeed.parse(feed(("item-l@ux-inbox", "Linked", "NEEDS-ACTION", "item", ["X-UXINBOX-ID:l", 'X-UXINBOX-LINK;X-LABEL="UX plans, row 2":https://docs.test/a', 'X-UXINBOX-LINK;X-LABEL="Figma":https://figma.test/b', 'X-UXINBOX-LINK;X-LABEL="Bad":file:///etc/x'])))
+check("links parse with labels, http(s) only", lt[0]["links"] == [{"label": "UX plans, row 2", "url": "https://docs.test/a"}, {"label": "Figma", "url": "https://figma.test/b"}])
+db = db_with(); uxfeed.sync(db, d, lt)
+check("links are stored on the task", db["tasks"][0]["links"][1]["url"] == "https://figma.test/b")
+
 print(f"\n{TMP}")
 sys.exit(1 if check.failed else 0)
