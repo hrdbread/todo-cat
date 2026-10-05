@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]      # repo root (~/.claude-todo)
 APP, ASSETS, STATE = ROOT / "app", ROOT / "assets", ROOT / "state"
 sys.path.insert(0, str(APP))
 import todo  # data core
+import uxfeed  # UX Inbox feed: VTODO subscription + tick-back
 
 from AppKit import (NSApplication, NSApplicationActivationPolicyRegular,
                     NSImageView, NSWindowStyleMaskBorderless,
@@ -256,6 +257,19 @@ def fetch_events_ics(url):
     return evs
 
 
+def fetch_todos_ics(url, folder=""):
+    """VTODOs from a UX Inbox feed (link or file; live link falls back to the published file)."""
+    return uxfeed.fetch(url, folder)
+
+
+def sync_feed_todos():
+    """Pull the UX Inbox feed into tasks.json. Off when no feed is set. Never raises."""
+    try:
+        return uxfeed.run(todo.load, todo.save)
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:160]}
+
+
 def fetch_events_eventkit(interactive):
     import EventKit
     from Foundation import NSDate
@@ -356,10 +370,16 @@ def build_state(cal_status):
         "cat_labels": labels,
         "pet_list": [[k, v[0]] for k, v in PETS.items()],
         "sounds": SOUNDS,
-        "open": [{"id": x["id"], "title": x["title"], "cat": x["category"]}
-                 for x in sorted(open_t, key=todo.sort_key)],
-        "closed": [{"id": x["id"], "title": x["title"], "cat": x["category"]}
-                   for x in done_t]}
+        "open": [task_view(x) for x in sorted(open_t, key=todo.sort_key)],
+        "closed": [task_view(x) for x in done_t],
+        "uxfeed": {**uxfeed.settings(), "status": uxfeed.last_status()}}
+
+
+def task_view(x):
+    v = {"id": x["id"], "title": x["title"], "cat": x["category"]}
+    if x.get("source") == uxfeed.SOURCE:
+        v.update(src=uxfeed.SOURCE, url=x.get("url", ""), kind=x.get("kind", "item"), tick_error=x.get("tick_error", ""))
+    return v
 
 
 IMPORTED = HOME / "imported.json"
@@ -577,6 +597,7 @@ class Bridge(NSObject):
                 self.cal_status = do_fetch(interactive)
             except Exception as e:
                 self.cal_status = f"error:{str(e)[:120]}"
+            sync_feed_todos()   # same refresh: the 15-min tick, ↻, and opening the panel
             self.push()
         threading.Thread(target=work, daemon=True).start()
 
@@ -648,6 +669,14 @@ class Bridge(NSObject):
             self.refresh_cal(interactive=True)
         elif a == "refresh_cal":
             self.refresh_cal()
+        elif a == "open_url":
+            u = str(b.get("url", ""))
+            if u.startswith(("https://", "http://")):
+                subprocess.Popen(["open", u])
+        elif a == "uxfeed_sync":
+            def work():
+                sync_feed_todos(); self.push()
+            threading.Thread(target=work, daemon=True).start()
         elif a == "dashboard":
             threading.Thread(target=todo.dashboard, daemon=True).start()
         elif a == "retro":
@@ -685,6 +714,10 @@ class Bridge(NSObject):
                         lambda w=p.win: w.setMovableByWindowBackground_(not v))
             if k in ("pet_enabled", "pets"):
                 self.show_pets()
+            if k in ("uxinbox_feed", "uxinbox_dir"):
+                def work():
+                    sync_feed_todos(); self.push()
+                threading.Thread(target=work, daemon=True).start()
             self.push()
         elif a == "pomo_title":
             self.pomo_text = str(b.get("text", ""))

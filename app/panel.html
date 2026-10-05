@@ -135,6 +135,12 @@ background:#C9CDC4;position:relative;cursor:pointer;flex:none;margin:0;transitio
 background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:left .15s}
 .tg:checked{background:var(--acc)}.tg:checked::after{left:16px}
 #op{width:104px;accent-color:var(--acc)}
+.srow.col{flex-direction:column;align-items:stretch;gap:6px}
+.txt{font:12px ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:6px;padding:5px 7px;
+background:var(--paper);color:var(--ink);min-width:0}
+#uxsync{font-size:11.5px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:3px 9px;cursor:pointer;flex:none}
+.uxb{font-size:9.5px;font-weight:700;letter-spacing:.04em;color:#fff;background:var(--ink);border-radius:4px;
+padding:1px 4px;flex:none;cursor:pointer;opacity:.75}.uxb:hover{opacity:1}.uxb.err{background:#C05B4D}
 #opv{width:34px;text-align:right;color:var(--mut);font-size:11.5px;font-variant-numeric:tabular-nums}
 #petpick{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:4px 10px;max-width:56%}
 #petpick label{font-size:11.5px;display:flex;align-items:center;gap:4px;white-space:nowrap}
@@ -173,6 +179,13 @@ vertical-align:middle;margin-left:8px;cursor:pointer}
 <div class="grp"><div class="gh" id="h_cal"></div><div class="card">
 <div class="srow"><div class="rl"><b id="l_imp"></b><small id="d_imp"></small></div>
 <input type="checkbox" class="tg" id="impchk"></div>
+</div></div>
+<div class="grp"><div class="gh" id="h_ux"></div><div class="card">
+<div class="srow col"><div class="rl"><b id="l_uxf"></b><small id="d_uxf"></small></div>
+<input class="txt" id="uxfeed" spellcheck="false" placeholder="http://localhost:5310/feeds/you.ics"></div>
+<div class="srow col"><div class="rl"><b id="l_uxd"></b><small id="d_uxd"></small></div>
+<input class="txt" id="uxdir" spellcheck="false" placeholder="~/Documents/Github/ux-inbox"></div>
+<div class="srow"><div class="rl"><small id="uxst"></small></div><button id="uxsync"></button></div>
 </div></div>
 <div class="grp"><div class="gh" id="h_cat"></div><div class="card">
 <div class="srow"><div class="rl"><b id="l_pet"></b><small id="d_pet"></small></div>
@@ -215,13 +228,13 @@ dash:"대시보드",retro:"Daily 회고",rcal:"일정 새로고침",quit:"종료
 lang:"언어",d_lang:"패널·메뉴바·로그 라벨 언어",op:"투명도",d_op:"패널 창의 불투명도",acc:"포인트 색",d_acc:"체크박스·강조·히트맵 색",close:"완료",h_appear:"모양",top:"항상 위에 표시",d_top:"끄면 다른 앱을 클릭할 때 뒤로 갑니다",h_sess:"세션",h_pomo:"포모도로",snd:"세션 종료 알림음",d_snd:"macOS 시스템 사운드 · 선택하면 미리 들립니다",snd_none:"없음",d_pw:"집중 세션 길이",d_pb:"세션 사이 휴식 길이",d_ptoday:"횟수 · 집중한 시간",h_cal:"캘린더",h_cat:"고양이",d_imp:"오늘 일정이 회의 카테고리 할 일로 들어옵니다",d_pet:"패널 위에 고양이를 표시합니다",d_pets:"표시할 고양이 (assets/pets 폴더에서 자동 인식)",d_walk:"패널을 사용한 뒤 60초 동안 걷습니다",noopen:"열린 항목 없음 — 가볍게 하나 추가해보세요.",
 noev:"오늘 남은 일정이 없습니다.",nosrc:"일정 소스 없음 — Exchange 계정 또는 ICS 링크를 등록하세요.",
 recheck:"일정 소스 다시 확인",retry:"다시 연결",checking:"확인 중…",
-hint:"크기 조절: 가장자리 드래그 · 이동: 상단 띠 드래그",imp:"8시에 일정을 할 일로 가져오기",pet:"데스크톱 고양이 펫",walk:"사용 중일 때 패널 위 산책",ctop:"다른 앱 위에 고양이 띄우기",d_ctop:"켜면 패널 위에서도, 최소화했을 때 구석에서도 고양이가 항상 맨 위에 보입니다",pets:"고양이",edit:"수정",del:"삭제",catchg:"카테고리 변경",hide:"목록에서 지우기",pomo:"포모도로",focus:"집중",brk:"휴식",start:"시작",pause:"일시정지",resume:"계속",reset:"종료(리셋)",pw:"집중",pb:"휴식",ptoday:"오늘 완료한 포모도로",min:"분"},
+hint:"크기 조절: 가장자리 드래그 · 이동: 상단 띠 드래그",imp:"8시에 일정을 할 일로 가져오기",pet:"데스크톱 고양이 펫",walk:"사용 중일 때 패널 위 산책",ctop:"다른 앱 위에 고양이 띄우기",d_ctop:"켜면 패널 위에서도, 최소화했을 때 구석에서도 고양이가 항상 맨 위에 보입니다",pets:"고양이",edit:"수정",del:"삭제",catchg:"카테고리 변경",hide:"목록에서 지우기",pomo:"포모도로",focus:"집중",brk:"휴식",start:"시작",pause:"일시정지",resume:"계속",reset:"종료(리셋)",pw:"집중",pb:"휴식",ptoday:"오늘 완료한 포모도로",min:"분",h_ux:"UX Inbox",l_uxf:"UX Inbox 피드",d_uxf:"구독 링크 또는 .ics 파일 경로. 실시간 링크가 응답하지 않으면 게시된 파일을 읽습니다",l_uxd:"UX Inbox 폴더",d_uxd:"완료 표시를 인박스에 되돌려 기록할 폴더 (ux-inbox 저장소)",uxsync:"지금 동기화",uxok:"동기화됨",uxitems:"개 항목",uxerr:"동기화 실패",uxoff:"꺼짐 — 링크를 붙여넣으세요",uxbadge:"UX Inbox에서 열기",uxtickerr:"인박스에 기록하지 못함"},
 en:{cal:"Today's schedule",todo:"To do",done:"Done today",inp:"Type and press Enter",
 dash:"Dashboard",retro:"Daily retro",rcal:"Refresh calendar",quit:"Quit",set:"Settings",
 lang:"Language",d_lang:"Panel, menu bar and log labels",op:"Opacity",d_op:"Transparency of the panel window",acc:"Accent color",d_acc:"Checkboxes, highlights and the heatmap",close:"Done",h_appear:"Appearance",top:"Always on top",d_top:"Off: goes behind the app you click",h_sess:"Session",h_pomo:"Pomodoro",snd:"End-of-session sound",d_snd:"macOS system sounds · previews when selected",snd_none:"None",d_pw:"Length of a focus session",d_pb:"Break between sessions",d_ptoday:"Sessions · minutes focused",h_cal:"Calendar",h_cat:"Cat",d_imp:"Today's events become Meeting to-dos",d_pet:"Show the cat on top of the panel",d_pets:"Which cats to show (found in assets/pets)",d_walk:"Walks for 60 s after you use the panel",noopen:"Nothing open — add something light.",
 noev:"No more events today.",nosrc:"No calendar source — add an Exchange account or ICS link.",
 recheck:"Re-check calendar source",retry:"Reconnect",checking:"Checking…",
-hint:"Resize: drag edges · Move: drag the top strip",imp:"Import events as todos at 8 AM",pet:"Desktop cat pet",walk:"Walk on the panel while active",ctop:"Cats float above other apps",d_ctop:"On: the cats stay on top of every app, on the panel and in the corner when it's minimised",pets:"Cats",edit:"Edit",del:"Delete",catchg:"Change category",hide:"Remove from list",pomo:"Pomodoro",focus:"Focus",brk:"Break",start:"Start",pause:"Pause",resume:"Resume",reset:"Stop (reset)",pw:"Focus",pb:"Break",ptoday:"Pomodoros today",min:"min"}};
+hint:"Resize: drag edges · Move: drag the top strip",imp:"Import events as todos at 8 AM",pet:"Desktop cat pet",walk:"Walk on the panel while active",ctop:"Cats float above other apps",d_ctop:"On: the cats stay on top of every app, on the panel and in the corner when it's minimised",pets:"Cats",edit:"Edit",del:"Delete",catchg:"Change category",hide:"Remove from list",pomo:"Pomodoro",focus:"Focus",brk:"Break",start:"Start",pause:"Pause",resume:"Resume",reset:"Stop (reset)",pw:"Focus",pb:"Break",ptoday:"Pomodoros today",min:"min",h_ux:"UX Inbox",l_uxf:"UX Inbox feed",d_uxf:"Subscribe link or .ics file path. If the live link does not answer, the published file is read",l_uxd:"UX Inbox folder",d_uxd:"Where ticking off is written back to the inbox (the ux-inbox repo)",uxsync:"Sync now",uxok:"Synced",uxitems:" to-dos",uxerr:"Sync failed",uxoff:"Off — paste a link",uxbadge:"Open in UX Inbox",uxtickerr:"Could not write back to the inbox"}};
 function T(){return L[(S&&S.settings.lang)||"ko"]}
 function post(o){window.webkit.messageHandlers.app.postMessage(o)}
 function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;
@@ -262,6 +275,9 @@ pickCat(d,t.cat,c=>post({action:"cat",id:t.id,cat:c}))};
 d.onclick=pc;r.appendChild(d);
 const cl2=el("span","clab",S.cat_labels[t.cat]||t.cat);
 cl2.title=T().catchg;cl2.onclick=pc;r.appendChild(cl2);
+if(t.src==="ux-inbox"){const ub=el("span","uxb"+(t.tick_error?" err":""),"UX");
+ub.title=t.tick_error?T().uxtickerr+": "+t.tick_error:T().uxbadge;
+ub.onclick=e=>{e.stopPropagation();if(t.url)post({action:"open_url",url:t.url})};r.appendChild(ub)}
 const sp=el("span","t",t.title);sp.dataset.orig=t.title;
 sp.ondblclick=()=>editable(sp,v=>post({action:"title",id:t.id,title:v}));
 r.appendChild(sp);const a=el("div","act");
@@ -290,7 +306,7 @@ document.getElementById("l_lang").textContent=t.lang;
 document.getElementById("l_op").textContent=t.op;
 document.getElementById("l_acc").textContent=t.acc;
 document.getElementById("l_hint").textContent=t.hint;
-["h_appear","h_cal","h_cat","h_sess","h_pomo","l_snd","d_snd","l_top","d_top","l_ctop","d_ctop","d_lang","d_op","d_acc","d_imp","d_pet","d_pets","d_walk","d_pw","d_pb","d_ptoday"]
+["h_appear","h_cal","h_ux","l_uxf","d_uxf","l_uxd","d_uxd","h_cat","h_sess","h_pomo","l_snd","d_snd","l_top","d_top","l_ctop","d_ctop","d_lang","d_op","d_acc","d_imp","d_pet","d_pets","d_walk","d_pw","d_pb","d_ptoday"]
 .forEach(k=>{const e=document.getElementById(k);if(e)e.textContent=t[k]||t[k.replace(/^l_/,"")]||""});
 document.getElementById("l_imp").textContent=t.imp;
 document.getElementById("l_pet").textContent=t.pet;
@@ -327,6 +343,7 @@ document.getElementById("opv").textContent=op.value+"%";
 document.getElementById("impchk").checked=!!s.settings.import_events;
 document.getElementById("topchk").checked=!!s.settings.always_on_top;
 document.getElementById("ctopchk").checked=!!s.settings.cats_on_top;
+uxUI(s.uxfeed||{});
 document.getElementById("petchk").checked=!!s.settings.pet_enabled;
 document.getElementById("walkchk").checked=!!s.settings.pet_walk;
 const pp=document.getElementById("petpick");
@@ -407,6 +424,15 @@ document.getElementById("petchk").onchange=e=>{
 post({action:"setting",key:"pet_enabled",value:e.target.checked})};
 document.getElementById("topchk").onchange=e=>{
 post({action:"setting",key:"always_on_top",value:e.target.checked})};
+function uxUI(u){const t=T();
+const f=document.getElementById("uxfeed"),d=document.getElementById("uxdir");
+if(document.activeElement!==f)f.value=u.feed||"";if(document.activeElement!==d)d.value=u.folder||"";
+document.getElementById("uxsync").textContent=t.uxsync;
+const st=u.status,el2=document.getElementById("uxst");
+el2.textContent=!u.feed?t.uxoff:!st?"":st.ok?`${t.uxok} ${String(st.at||"").slice(11,16)} · ${st.count}${t.uxitems}${st.from&&st.from!==u.feed?" · "+st.from.split("/").pop():""}`:`${t.uxerr}: ${st.error||""}`}
+document.getElementById("uxfeed").onchange=e=>post({action:"setting",key:"uxinbox_feed",value:e.target.value.trim()});
+document.getElementById("uxdir").onchange=e=>post({action:"setting",key:"uxinbox_dir",value:e.target.value.trim()});
+document.getElementById("uxsync").onclick=()=>post({action:"uxfeed_sync"});
 document.getElementById("ctopchk").onchange=e=>{
 post({action:"setting",key:"cats_on_top",value:e.target.checked})};
 document.getElementById("impchk").onchange=e=>{

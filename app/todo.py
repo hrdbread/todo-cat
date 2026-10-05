@@ -95,6 +95,9 @@ def set_done(tid, flag):
     db = load()
     t = find(db, tid)
     if t:
+        if t.get("source") == "ux-inbox" and bool(t["done"]) != bool(flag):
+            import uxfeed   # ticking a UX Inbox to-do also updates the inbox (one event file)
+            uxfeed.tick_back(t, flag)
         t["done"] = flag
         t["done_at"] = now().isoformat() if flag else None
         save(db)

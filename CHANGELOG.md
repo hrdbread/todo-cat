@@ -2,6 +2,11 @@
 
 Everything here was built pair-programming with Claude. Dates are actual working days.
 
+## 2026-10-05
+### Added
+- **UX Inbox feed**: Settings → *UX Inbox* takes a subscribe link (or `.ics` file path) from ux-inbox. Your open design work comes in as **Design** to-dos and open blocker/major research findings as **Research** to-dos, each with a small **UX** badge that opens it in the inbox. Synced on the same refresh as the calendar (every 15 min, ↻, opening the panel) and with *Sync now*; kept in step by UID, so no duplicates. The live link (`http://localhost:5310/feeds/<you>.ics`) is read first; when the inbox server is off, the published `docs/feeds/<you>.ics` in the *UX Inbox folder* is read instead. Synced to-dos land below your own.
+- **Ticking off writes back**: ticking a UX to-do marks the item Done in the inbox (reason "Ticked off in todo-cat") or the finding resolved, as one event file in the inbox's shared log; unticking undoes it. The feed never reopens a task you ticked, and a failed read never removes anything.
+
 ## 2026-10-01
 ### Changed
 - **Panel is a normal window by default** — it goes behind whatever app you click and comes forward when you click it or its Dock icon. New Settings → Appearance → *Always on top* toggle restores the floating behaviour.
