@@ -72,16 +72,24 @@ def parse(raw):
             "url": str(c.get("URL", "") or ""),
             "kind": kind if kind in CATEGORY else "item",
             "completed": str(c.get("STATUS", "")).upper() == "COMPLETED",
-            "item_id": str(c.get("X-UXINBOX-ID", "") or ""),
-            "suggested": str(c.get("X-UXINBOX-SUGGESTED", "") or ""),
-            "study_id": str(c.get("X-UXINBOX-STUDY", "") or ""),
-            "finding_id": str(c.get("X-UXINBOX-FINDING", "") or ""),
+            "item_id": _x(c, "X-UXINBOX-ID"),
+            "suggested": _x(c, "X-UXINBOX-SUGGESTED"),
+            "study_id": _x(c, "X-UXINBOX-STUDY"),
+            "finding_id": _x(c, "X-UXINBOX-FINDING"),
             "parent": str(c.get("RELATED-TO", "") or ""),
-            "check_id": str(c.get("X-UXINBOX-CHECK", "") or ""),
-            "group": str(c.get("X-UXINBOX-GROUP", "") or ""),
+            "check_id": _x(c, "X-UXINBOX-CHECK"),
+            "group": _x(c, "X-UXINBOX-GROUP"),
             "links": _links(c),
+            "context": {k: _x(c, f"X-UXINBOX-{p}") for k, p in
+                        (("severity", "SEVERITY"), ("app", "APP"), ("study", "STUDY-TITLE"), ("fix", "FIX"), ("via", "VIA"))},
         })
     return designer, out
+
+
+def _x(c, name):
+    """An X-UXINBOX-* text value, unescaped (icalendar leaves \\; \\, \\n \\\\ as-is on X- properties)."""
+    v = str(c.get(name, "") or "")
+    return re.sub(r"\\([\\;,nN])", lambda m: "\n" if m.group(1) in "nN" else m.group(1), v)
 
 
 def _links(c):
@@ -140,6 +148,8 @@ def sync(db, designer, todos):
     for f in todos:
         seen.add(f["uid"])
         meta = {k: f[k] for k in ("kind", "item_id", "suggested", "study_id", "finding_id", "links")}
+        if f["kind"] == "finding":
+            meta["context"] = f["context"]
         t = mine.get(f["uid"])
         if t is None:
             if f["completed"]:

@@ -4,6 +4,7 @@ Everything here was built pair-programming with Claude. Dates are actual working
 
 ## 2026-10-05
 ### Changed
+- **Research to-dos have context**: ▸ opens the product and severity (e.g. *Decido · Blocker*), the study, the suggested fix, where it came from (a project or one of your items) and a link to the study.
 - **Ticking a UX item hands it over for review**: it moves to *In review* in the inbox (not Done) and leaves the feed, which now only carries items *In design* or *Ready* (plus research follow-ups for those). Jira and monday are not touched.
 
 ### Added

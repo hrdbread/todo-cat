@@ -125,5 +125,11 @@ check("links parse with labels, http(s) only", lt[0]["links"] == [{"label": "UX 
 db = db_with(); uxfeed.sync(db, d, lt)
 check("links are stored on the task", db["tasks"][0]["links"][1]["url"] == "https://figma.test/b")
 
+# ── finding context ──
+_, ft = uxfeed.parse(feed(("finding-x@ux-inbox", "Dropdown empty", "NEEDS-ACTION", "finding", ["X-UXINBOX-STUDY:ut-9", "X-UXINBOX-FINDING:2", "X-UXINBOX-SEVERITY:blocker", "X-UXINBOX-APP:Decido", "X-UXINBOX-STUDY-TITLE:Bandit study", "X-UXINBOX-FIX:Show options on click\\; not only after typing", "X-UXINBOX-VIA:project Decido", 'X-UXINBOX-LINK;X-LABEL="Study · Bandit study":https://pages.test/s'])))
+check("finding context parses", ft[0]["context"] == {"severity": "blocker", "app": "Decido", "study": "Bandit study", "fix": "Show options on click; not only after typing", "via": "project Decido"} and ft[0]["links"][0]["url"] == "https://pages.test/s")
+db = db_with(); uxfeed.sync(db, d, ft)
+check("context is stored on the finding task", db["tasks"][0]["context"]["app"] == "Decido")
+
 print(f"\n{TMP}")
 sys.exit(1 if check.failed else 0)
