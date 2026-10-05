@@ -3,11 +3,14 @@
 Everything here was built pair-programming with Claude. Dates are actual working days.
 
 ## 2026-10-05
+### Changed
+- **Ticking a UX item hands it over for review**: it moves to *In review* in the inbox (not Done) and leaves the feed, which now only carries items *In design* or *Ready* (plus research follow-ups for those). Jira and monday are not touched.
+
 ### Added
 - **Links in the accordion**: a UX to-do's accordion opens with its links — the UX plans row it came from, Figma/Miro/doc links on the row, links added in the inbox and linked studies — each a chip that opens in the browser. To-dos with links but no open checks get the accordion too.
 - **DoD checks as an accordion**: a UX to-do has a ▸ and a count (e.g. `1/25`). Open it to see the checks still to do, under their DoD headings (epics: their readiness checks). Ticking a check marks it met in the inbox ("Marked met by …"); unticking undoes it. Open/closed is remembered; checks don't count as separate to-dos.
 - **UX Inbox feed**: Settings → *UX Inbox* takes a subscribe link (or `.ics` file path) from ux-inbox. Your open design work comes in as **Design** to-dos and open blocker/major research findings as **Research** to-dos, each with a small **UX** badge that opens it in the inbox. Synced on the same refresh as the calendar (every 15 min, ↻, opening the panel) and with *Sync now*; kept in step by UID, so no duplicates. The live link (`http://localhost:5310/feeds/<you>.ics`) is read first; when the inbox server is off, the published `docs/feeds/<you>.ics` in the *UX Inbox folder* is read instead. Synced to-dos land below your own.
-- **Ticking off writes back**: ticking a UX to-do marks the item Done in the inbox (reason "Ticked off in todo-cat") or the finding resolved, as one event file in the inbox's shared log; unticking undoes it. The feed never reopens a task you ticked, and a failed read never removes anything.
+- **Ticking off writes back**: ticking a UX to-do moves the item to In review in the inbox (reason "Ticked off in todo-cat") or the finding resolved, as one event file in the inbox's shared log; unticking undoes it. The feed never reopens a task you ticked, and a failed read never removes anything.
 
 ## 2026-10-01
 ### Changed

@@ -14,7 +14,8 @@ Checks: a feed VTODO RELATED-TO an item is one of its DoD checks (epics: readine
        task's `subtasks` list (same sync rules) and show as an accordion. Ticking one writes check.marked
        (unticking: check.undone), which the inbox counts as a met check.
 Tick-back: ticking a synced task writes ONE event file into <UX Inbox folder>/data/edits/events/
-       (the shared log, same format as ux-inbox lib/eventlog.mjs): item → status.corrected/confirmed to Done,
+       (the shared log, same format as ux-inbox lib/eventlog.mjs): item → status.corrected/confirmed to In review
+       (your part is done; the inbox's status only — Jira/monday are never written from here),
        finding → finding.resolved. Unticking writes the matching undo. Feed-made changes never write back.
 No pyobjc here: panel.py and todo.py call in, tests import it directly.
 """
@@ -31,6 +32,7 @@ SETTINGS = ROOT / "state" / "settings.json"
 STATUS = ROOT / "state" / "uxfeed_status.json"
 SOURCE = "ux-inbox"
 REASON = "Ticked off in todo-cat"
+TICKED_STATUS = "In review"   # ticking an item hands it over for review
 CATEGORY = {"item": "Design", "finding": "Research", "check": "Design"}
 
 
@@ -309,8 +311,8 @@ def tick_back(t, flag, folder=None):
                                 {"studyId": t["study_id"], "findingId": t["finding_id"], "reason": REASON})
             else:
                 sug = t.get("suggested") or ""
-                e = write_event(folder, actor, "status.confirmed" if sug == "Done" else "status.corrected",
-                                {"itemId": t["item_id"], "status": "Done", "suggested": sug, "reason": REASON})
+                e = write_event(folder, actor, "status.confirmed" if sug == TICKED_STATUS else "status.corrected",
+                                {"itemId": t["item_id"], "status": TICKED_STATUS, "suggested": sug, "reason": REASON})
             t["tick_event_id"] = e["id"]
             t.pop("tick_error", None)
             return e

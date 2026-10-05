@@ -75,13 +75,13 @@ check("nothing readable → error recorded, tasks untouched", st["ok"] is False 
 # ── tick-back ──
 ev_dir = inbox / "data" / "edits" / "events"
 NAME = re.compile(r"^\d{8}T\d{6}\.\d{6}Z-ev_[A-Za-z0-9-]+\.json$")
-db = db_with(); uxfeed.sync(db, d, uxfeed.parse(feed(ITEM("it-1", sug="In review"), FIND("f-1")))[1])
+db = db_with(); uxfeed.sync(db, d, uxfeed.parse(feed(ITEM("it-1", sug="In design"), FIND("f-1")))[1])
 item = next(t for t in db["tasks"] if t["kind"] == "item"); fnd = next(t for t in db["tasks"] if t["kind"] == "finding")
 e = uxfeed.tick_back(item, True, folder=str(inbox))
 files = sorted(p.name for p in ev_dir.iterdir())
 check("tick item → one event file, named like the inbox's", len(files) == 1 and NAME.match(files[0]))
 stored = json.loads((ev_dir / files[0]).read_text())
-check("status.corrected to Done, with the suggestion and reason", stored["type"] == "status.corrected" and stored["payload"] == {"itemId": "it-1", "status": "Done", "suggested": "In review", "reason": uxfeed.REASON} and stored["actor"] == "Stefan Twerdochlib" and re.match(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$", stored["ts"]))
+check("status.corrected to In review, with the suggestion and reason", stored["type"] == "status.corrected" and stored["payload"] == {"itemId": "it-1", "status": "In review", "suggested": "In design", "reason": uxfeed.REASON} and stored["actor"] == "Stefan Twerdochlib" and re.match(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$", stored["ts"]))
 check("the task remembers the event", item["tick_event_id"] == e["id"])
 u = uxfeed.tick_back(item, False, folder=str(inbox))
 check("untick → status.undone naming it", u["type"] == "status.undone" and u["payload"] == {"itemId": "it-1", "undoes": e["id"]} and "tick_event_id" not in item)
@@ -96,6 +96,12 @@ check("untick a feed-ticked task → nothing written, feed won't re-tick", uxfee
 bad = {"source": "ux-inbox", "kind": "item", "item_id": "x", "designer": "S"}
 check("wrong folder → no crash, error kept on the task", uxfeed.tick_back(bad, True, folder=str(TMP / "nope")) is None and "tick_error" in bad)
 check("not a feed task → ignored", uxfeed.tick_back({"title": "mine"}, True, folder=str(inbox)) is None)
+
+sug_rev = {"source": "ux-inbox", "kind": "item", "item_id": "r", "suggested": "In review", "designer": "S"}
+er = uxfeed.tick_back(sug_rev, True, folder=str(inbox))
+check("suggestion already In review → status.confirmed", er["type"] == "status.confirmed" and er["payload"]["status"] == "In review")
+for f in ev_dir.iterdir():
+    if er["id"] in f.name: f.unlink()
 
 # ── DoD checks as sub-tasks ──
 CHK = lambda uid, parent, title="Check", status="NEEDS-ACTION", group="Validated": (uid, title, status, "check", [f"RELATED-TO;RELTYPE=PARENT:{parent}", f"X-UXINBOX-ID:{parent[5:-9]}", f"X-UXINBOX-CHECK:{uid[6:]}", f"X-UXINBOX-GROUP:{group}"])
