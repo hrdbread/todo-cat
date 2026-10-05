@@ -37,6 +37,7 @@ margin-left:-4px;user-select:none;cursor:grab}
 .row.sub.err .t{color:#C05B4D}
 .ctx{margin:2px 10px 2px 52px;font-size:12px;line-height:1.4;color:var(--ink)}
 .ctx.mut{color:var(--mut)}
+.ctx.full{font-weight:600;margin-top:6px}
 .subg.sev{color:#C05B4D}
 .lnks{display:flex;flex-wrap:wrap;gap:4px 6px;margin:4px 10px 2px 52px}
 .lnk{font-size:11px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:6px;padding:2px 7px;
@@ -309,6 +310,7 @@ const e2=el("button","","✕");e2.title=T().del;
 e2.onclick=()=>post({action:"delete",id:t.id});
 a.appendChild(e1);a.appendChild(e2);r.appendChild(a);return r}
 function subList(t){const box=el("div","subs");let g=null;
+if(t.title.length>28)box.appendChild(el("div","ctx full",t.title));   // the row cuts long titles off
 if(t.ctx){const c=t.ctx,sv=(T().sev||{})[c.severity]||c.severity;
 box.appendChild(el("div","subg sev",[c.app,sv].filter(Boolean).join(" · ")));
 if(c.study)box.appendChild(el("div","ctx mut",c.study));
