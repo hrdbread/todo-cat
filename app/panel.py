@@ -131,7 +131,16 @@ def get_settings():
             "pets": [k for k in c.get("pets", DEFAULT_PETS) if k in PETS] or DEFAULT_PETS,
             "accent": _hex(c.get("accent"), "#2E6E5E"),
             "sound": str(c.get("sound", todo.CFG.get("sound", "Purr"))),
-            "always_on_top": bool(c.get("always_on_top", False))}
+            "always_on_top": bool(c.get("always_on_top", False)),
+            "cats_on_top": bool(c.get("cats_on_top", False))}
+
+
+def pet_level():
+    """Cat windows: above every app when 'Cats float above other apps' is on, else the panel's level."""
+    s = get_settings()
+    if s["cats_on_top"]:
+        return NSFloatingWindowLevel + 1
+    return NSFloatingWindowLevel if s["always_on_top"] else NSNormalWindowLevel
 
 
 def _hex(v, default):
@@ -448,6 +457,10 @@ class Pet:
         self.loaf = 0          # 0 = not loafing, 1..8 = loaf frame shown
         self.loaf_dir = 0      # +1 settling down, -1 getting up, 0 = still
         self.loaf_next = 0.0
+        self.trip = None       # None | "out" (to the screen corner) | "parked" | "back" (to the panel)
+        self.tx = self.ty = 0.0
+        self.tspeed = 3.6
+        self.home_dx = 0.0     # x offset on the panel to walk back to
         # (desktop cats are independent of the Pomodoro — rule 1 applies to the Pomodoro page only)
 
     def apply_image(self):
@@ -492,6 +505,7 @@ class Bridge(NSObject):
         self.pomo_running = False
         import time as _t
         self.pet_last_touch = _t.time()   # last panel interaction
+        self.cats_away = False            # panel minimised → cats went to the screen corner
         self.cal_status = "connected" if cached_events() else "none"
         return self
 
@@ -653,8 +667,18 @@ class Bridge(NSObject):
                 def relevel():
                     self.panel.setLevel_(lvl)
                     for q in self.pets:
-                        q.win.setLevel_(lvl)
+                        q.win.setLevel_(pet_level())
                 AppHelper.callAfter(relevel)
+            if k == "cats_on_top":
+                # child windows ignore their own level → floating cats must not be panel children
+                for q in self.pets:
+                    def apply(q=q):
+                        if v:
+                            self.panel.removeChildWindow_(q.win)
+                        elif not q.trip and self.panel.isVisible():
+                            self.panel.addChildWindow_ordered_(q.win, NSWindowAbove)
+                        q.win.setLevel_(pet_level())
+                    AppHelper.callAfter(apply)
             if k == "pet_walk":
                 for p in self.pets:
                     AppHelper.callAfter(
@@ -871,13 +895,14 @@ def main():
             NSBackingStoreBuffered, False)
         pet.setOpaque_(False)
         pet.setBackgroundColor_(NSColor.clearColor())
-        pet.setLevel_(panel.level())
+        pet.setLevel_(pet_level())
         pet.setCollectionBehavior_(NSWindowCollectionBehaviorCanJoinAllSpaces |
                                    NSWindowCollectionBehaviorFullScreenAuxiliary)
         pet.setHidesOnDeactivate_(False)
         pet.setMovableByWindowBackground_(not get_settings()["pet_walk"])
         pet.setHasShadow_(False)
-        panel.addChildWindow_ordered_(pet, NSWindowAbove)   # follows close/minimise/reopen, stays above the panel
+        if not get_settings()["cats_on_top"]:   # floating cats can't be children (children ignore their level)
+            panel.addChildWindow_ordered_(pet, NSWindowAbove)   # follows close/minimise/reopen, stays above the panel
         autosave = "catPet3" if i == 0 else f"catPet3_{key}"   # default cat keeps its saved spot
         if pet.setFrameUsingName_(autosave):
             sf = pet.frame()
@@ -929,17 +954,125 @@ def main():
         while True:
             _t.sleep(0.07)
             try:
+                s = get_settings()
+                if s["cats_on_top"] and s["pet_enabled"]:
+                    want = bool(panel.isVisible() or panel.isMiniaturized())
+                    for p in bridge.active_pets():
+                        if want != bool(p.win.isVisible()):
+                            AppHelper.callAfter(lambda w=p.win, on=want:
+                                                w.orderFrontRegardless() if on else w.orderOut_(None))
                 if not get_settings()["pet_walk"]:
                     continue
                 if not get_settings()["pet_enabled"]:
                     continue
-                if not panel.isVisible():
-                    continue
                 pets_on = bridge.active_pets()
+                mini = panel.isMiniaturized()
+                if mini and not bridge.cats_away:
+                    bridge.cats_away = True
+                    send_to_corner(pets_on)
+                elif not mini and bridge.cats_away and panel.isVisible():
+                    bridge.cats_away = False
+                    for p in pets_on:
+                        if p.trip in ("out", "parked"):
+                            if p.loaf or p.loaf_dir:
+                                p.loaf_dir = -1               # get up first
+                            p.trip = "back"
+                            start_trip(p, *home_spot(p))
+                if not panel.isVisible() and not any(p.trip for p in pets_on):
+                    continue
+                now = _t.time()
                 for p in pets_on:
-                    step_pet(p, _t.time(), LOAF_AFTER)
+                    if p.trip:
+                        step_trip(p, now)
+                    elif panel.isVisible():
+                        step_pet(p, now, LOAF_AFTER)
             except Exception:
                 pass
+
+    def animate_loaf(p, now):
+        if p.loaf_dir and now >= p.loaf_next:
+            p.loaf = min(max(p.loaf + p.loaf_dir, 0), 8)
+            settling = p.loaf_dir > 0
+            if p.loaf in (0, 8):
+                p.loaf_dir = 0
+                print(f"[pet] {p.key} " + ("loafing" if p.loaf else "up"), file=sys.stderr)
+            p.loaf_next = now + (0.25 if settling else 0.12)
+            p.apply_image()
+
+    def send_to_corner(pets_on):
+        """Panel minimised: each cat walks to the bottom-right corner of the panel's screen, side by side."""
+        pf = panel.frame()
+        vf = NSScreen.mainScreen().visibleFrame()
+        for sc in NSScreen.screens():
+            f = sc.frame()
+            if (f.origin.x <= pf.origin.x + pf.size.width / 2 < f.origin.x + f.size.width
+                    and f.origin.y <= pf.origin.y + pf.size.height / 2 < f.origin.y + f.size.height):
+                vf = sc.visibleFrame()
+                break
+        x = vf.origin.x + vf.size.width - 6
+        for n, p in enumerate(pets_on):
+            cf = p.win.frame()
+            x -= cf.size.width if n == 0 else cf.size.width * 0.8   # cats' images have side margins
+            p.home_dx = cf.origin.x - pf.origin.x
+            AppHelper.callAfter(lambda w=p.win: (panel.removeChildWindow_(w), w.orderFrontRegardless()))
+            if p.loaf or p.loaf_dir:
+                p.loaf_dir = -1                                  # get up before walking
+            p.trip = "out"
+            start_trip(p, x, vf.origin.y + 2)
+        print("[pet] panel minimised → cats to the corner", file=sys.stderr)
+
+    def home_spot(p):
+        pf = panel.frame()
+        cf = p.win.frame()
+        left = pf.origin.x + 6
+        right = pf.origin.x + pf.size.width - cf.size.width - 6
+        return (min(max(pf.origin.x + p.home_dx, left), max(left, right)),
+                pf.origin.y + pf.size.height - 5)
+
+    def start_trip(p, tx, ty):
+        cf = p.win.frame()
+        dist = ((tx - cf.origin.x) ** 2 + (ty - cf.origin.y) ** 2) ** 0.5
+        p.tx, p.ty = tx, ty
+        p.tspeed = max(3.6, dist / 45)        # any distance takes ~3 s
+
+    def step_trip(p, now):
+        """One tick of a walk to the corner (and loaf there) or back to the panel."""
+        animate_loaf(p, now)
+        if p.trip == "parked" or p.loaf or p.loaf_dir:
+            return                                    # loafing, or still getting up
+        if p.trip == "back" and not panel.isVisible():
+            return
+        if p.trip == "back":
+            p.tx, p.ty = home_spot(p)                 # the panel may have moved
+        cf = p.win.frame()
+        dx, dy = p.tx - cf.origin.x, p.ty - cf.origin.y
+        dist = (dx * dx + dy * dy) ** 0.5
+        if dist <= p.tspeed:
+            AppHelper.callAfter(lambda w=p.win, x=p.tx, y=p.ty: w.setFrameOrigin_((x, y)))
+            p.moving = False
+            if p.trip == "out":
+                p.trip = "parked"
+                if "loaf1" in p.imgs:
+                    p.loaf_dir = 1                    # settle straight into a loaf
+            else:
+                p.trip = None
+                if not get_settings()["cats_on_top"]:
+                    AppHelper.callAfter(
+                        lambda w=p.win: panel.addChildWindow_ordered_(w, NSWindowAbove))
+            p.apply_image()
+            return
+        if abs(dx) > 1 and (dx > 0) != (p.dir > 0):
+            p.dir = 1 if dx > 0 else -1
+            p.apply_image()
+        if not p.moving:
+            p.moving = True
+            p.apply_image()
+        p.step = (p.step + 1) % 8
+        p.frame = p.step
+        p.apply_image()
+        nx = cf.origin.x + dx / dist * p.tspeed
+        ny = cf.origin.y + dy / dist * p.tspeed
+        AppHelper.callAfter(lambda w=p.win, x=nx, y=ny: w.setFrameOrigin_((x, y)))
 
     def step_pet(p, now, loaf_after):
         """One animation tick for one cat."""
@@ -958,14 +1091,7 @@ def main():
                 and p.state == "idle" and now > bridge.pet_active_until
                 and now - bridge.pet_last_touch > loaf_after):
             p.loaf_dir = 1
-        if p.loaf_dir and now >= p.loaf_next:
-            p.loaf = min(max(p.loaf + p.loaf_dir, 0), 8)
-            settling = p.loaf_dir > 0
-            if p.loaf in (0, 8):
-                p.loaf_dir = 0
-                print(f"[pet] {p.key} " + ("loafing" if p.loaf else "up"), file=sys.stderr)
-            p.loaf_next = now + (0.25 if settling else 0.12)
-            p.apply_image()
+        animate_loaf(p, now)
         if now > bridge.pet_active_until or p.loaf or p.loaf_dir:
             # idle or loaf: sit still, follow the panel if it moves
             if p.moving:
