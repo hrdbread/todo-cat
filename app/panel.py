@@ -379,6 +379,10 @@ def task_view(x):
     v = {"id": x["id"], "title": x["title"], "cat": x["category"]}
     if x.get("source") == uxfeed.SOURCE:
         v.update(src=uxfeed.SOURCE, url=x.get("url", ""), kind=x.get("kind", "item"), tick_error=x.get("tick_error", ""))
+        if x.get("subtasks"):
+            v.update(expanded=bool(x.get("expanded")),
+                     subs=[{"uid": s["uid"], "title": s["title"], "group": s.get("group", ""), "done": bool(s["done"]),
+                            "tick_error": s.get("tick_error", "")} for s in x["subtasks"]])
     return v
 
 
@@ -655,6 +659,13 @@ class Bridge(NSObject):
             if bool(b["flag"]):
                 self.set_pet("happy", 2.5)
             self.push()
+        elif a == "subdone":
+            todo.set_sub_done(int(b["id"]), str(b["uid"]), bool(b["flag"]))
+            if bool(b["flag"]):
+                self.set_pet("happy", 2.5)
+            self.push()
+        elif a == "expand":
+            todo.set_expanded(int(b["id"]), bool(b["open"])); self.push()
         elif a == "delete":
             todo.delete(int(b["id"])); self.push()
         elif a == "reorder":

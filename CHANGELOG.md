@@ -4,6 +4,7 @@ Everything here was built pair-programming with Claude. Dates are actual working
 
 ## 2026-10-05
 ### Added
+- **DoD checks as an accordion**: a UX to-do has a ▸ and a count (e.g. `1/25`). Open it to see the checks still to do, under their DoD headings (epics: their readiness checks). Ticking a check marks it met in the inbox ("Marked met by …"); unticking undoes it. Open/closed is remembered; checks don't count as separate to-dos.
 - **UX Inbox feed**: Settings → *UX Inbox* takes a subscribe link (or `.ics` file path) from ux-inbox. Your open design work comes in as **Design** to-dos and open blocker/major research findings as **Research** to-dos, each with a small **UX** badge that opens it in the inbox. Synced on the same refresh as the calendar (every 15 min, ↻, opening the panel) and with *Sync now*; kept in step by UID, so no duplicates. The live link (`http://localhost:5310/feeds/<you>.ics`) is read first; when the inbox server is off, the published `docs/feeds/<you>.ics` in the *UX Inbox folder* is read instead. Synced to-dos land below your own.
 - **Ticking off writes back**: ticking a UX to-do marks the item Done in the inbox (reason "Ticked off in todo-cat") or the finding resolved, as one event file in the inbox's shared log; unticking undoes it. The feed never reopens a task you ticked, and a failed read never removes anything.
 

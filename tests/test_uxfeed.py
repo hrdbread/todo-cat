@@ -97,5 +97,21 @@ bad = {"source": "ux-inbox", "kind": "item", "item_id": "x", "designer": "S"}
 check("wrong folder → no crash, error kept on the task", uxfeed.tick_back(bad, True, folder=str(TMP / "nope")) is None and "tick_error" in bad)
 check("not a feed task → ignored", uxfeed.tick_back({"title": "mine"}, True, folder=str(inbox)) is None)
 
+# ── DoD checks as sub-tasks ──
+CHK = lambda uid, parent, title="Check", status="NEEDS-ACTION", group="Validated": (uid, title, status, "check", [f"RELATED-TO;RELTYPE=PARENT:{parent}", f"X-UXINBOX-ID:{parent[5:-9]}", f"X-UXINBOX-CHECK:{uid[6:]}", f"X-UXINBOX-GROUP:{group}"])
+db = db_with()
+uxfeed.sync(db, d, uxfeed.parse(feed(ITEM("item-p@ux-inbox"), CHK("check-c1", "item-p@ux-inbox"), CHK("check-c2", "item-p@ux-inbox", group="Design complete")))[1])
+p = next(t for t in db["tasks"] if t.get("external_uid") == "item-p@ux-inbox")
+check("checks become sub-tasks of their item, not tasks", len(db["tasks"]) == 1 and [x["uid"] for x in p["subtasks"]] == ["check-c1", "check-c2"] and p["subtasks"][1]["group"] == "Design complete")
+uxfeed.sync(db, d, uxfeed.parse(feed(ITEM("item-p@ux-inbox"), CHK("check-c1", "item-p@ux-inbox"), CHK("check-c2", "item-p@ux-inbox", group="Design complete")))[1])
+check("re-run: no duplicate sub-tasks", len(p["subtasks"]) == 2)
+uxfeed.sync(db, d, uxfeed.parse(feed(ITEM("item-p@ux-inbox"), CHK("check-c1", "item-p@ux-inbox", status="COMPLETED")))[1])
+check("feed COMPLETED ticks a sub-task; gone + open drops it", [(x["uid"], x["done"]) for x in p["subtasks"]] == [("check-c1", True)])
+p["subtasks"][0].update(done=False, done_by=None)
+e = uxfeed.tick_back_check(p, p["subtasks"][0], True, folder=str(inbox))
+check("tick a sub-task → check.marked with the item and criterion", e["type"] == "check.marked" and e["payload"] == {"itemId": p["item_id"], "criterionId": "c1", "reason": uxfeed.REASON} and NAME.match(next(f.name for f in ev_dir.iterdir() if e["id"] in f.name)))
+u = uxfeed.tick_back_check(p, p["subtasks"][0], False, folder=str(inbox))
+check("untick → check.undone naming it", u["type"] == "check.undone" and u["payload"] == {"undoes": e["id"]})
+
 print(f"\n{TMP}")
 sys.exit(1 if check.failed else 0)

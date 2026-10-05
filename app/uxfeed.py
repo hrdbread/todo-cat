@@ -10,6 +10,9 @@ Feed:  an iCalendar file of VTODOs (ux-inbox lib/feeds.mjs). Settings → "UX In
 Sync:  by UID into tasks.json (source "ux-inbox", external_uid, url). New UID → add; changed title → update;
        feed COMPLETED → done; UID gone and task still open → removed. The feed never reopens a task you ticked.
        Nothing is removed unless the feed was read and parsed as a VCALENDAR (a login page never wipes tasks).
+Checks: a feed VTODO RELATED-TO an item is one of its DoD checks (epics: readiness checks). They live in the
+       task's `subtasks` list (same sync rules) and show as an accordion. Ticking one writes check.marked
+       (unticking: check.undone), which the inbox counts as a met check.
 Tick-back: ticking a synced task writes ONE event file into <UX Inbox folder>/data/edits/events/
        (the shared log, same format as ux-inbox lib/eventlog.mjs): item → status.corrected/confirmed to Done,
        finding → finding.resolved. Unticking writes the matching undo. Feed-made changes never write back.
@@ -28,7 +31,7 @@ SETTINGS = ROOT / "state" / "settings.json"
 STATUS = ROOT / "state" / "uxfeed_status.json"
 SOURCE = "ux-inbox"
 REASON = "Ticked off in todo-cat"
-CATEGORY = {"item": "Design", "finding": "Research"}
+CATEGORY = {"item": "Design", "finding": "Research", "check": "Design"}
 
 
 def settings():
@@ -71,6 +74,9 @@ def parse(raw):
             "suggested": str(c.get("X-UXINBOX-SUGGESTED", "") or ""),
             "study_id": str(c.get("X-UXINBOX-STUDY", "") or ""),
             "finding_id": str(c.get("X-UXINBOX-FINDING", "") or ""),
+            "parent": str(c.get("RELATED-TO", "") or ""),
+            "check_id": str(c.get("X-UXINBOX-CHECK", "") or ""),
+            "group": str(c.get("X-UXINBOX-GROUP", "") or ""),
         })
     return designer, out
 
@@ -113,6 +119,8 @@ def sync(db, designer, todos):
     n = {"added": 0, "updated": 0, "done": 0, "removed": 0}
     orders = [t.get("order", -t["id"]) for t in db["tasks"] if not t["done"]]
     bottom = max(orders) + 1 if orders else 0
+    checks = [f for f in todos if f["kind"] == "check"]
+    todos = [f for f in todos if f["kind"] != "check"]
     for f in todos:
         seen.add(f["uid"])
         meta = {k: f[k] for k in ("kind", "item_id", "suggested", "study_id", "finding_id")}
@@ -141,6 +149,14 @@ def sync(db, designer, todos):
             t["done"], t["done_at"], t["done_by"] = True, _now(), "feed"
             n["done"] += 1
         # NEEDS-ACTION while ticked here: left alone — the feed never reopens a task you ticked
+    # checks: under their task, same rules as tasks (new → add, title → update, COMPLETED → tick, gone + open → drop)
+    by_parent = {}
+    for f in checks:
+        by_parent.setdefault(f["parent"], []).append(f)
+    for uid, t in mine.items():
+        if t.get("kind", "item") != "item":
+            continue
+        n["subtasks"] = n.get("subtasks", 0) + sync_subtasks(t, by_parent.get(uid, []))
     keep = []
     for t in db["tasks"]:
         if t.get("source") == SOURCE and t.get("external_uid") not in seen and not t["done"]:
@@ -149,6 +165,26 @@ def sync(db, designer, todos):
         keep.append(t)
     db["tasks"] = keep
     return n
+
+
+def sync_subtasks(t, feed_checks):
+    """Reconcile one task's `subtasks` with its checks in the feed, in feed order. Returns how many are open."""
+    old = {s["uid"]: s for s in t.get("subtasks", [])}
+    out = []
+    for f in feed_checks:
+        s = old.pop(f["uid"], None)
+        if s is None:
+            if f["completed"]:
+                continue
+            s = {"uid": f["uid"], "check_id": f["check_id"], "done": False, "done_at": None}
+        s.update(title=f["title"], group=f["group"], check_id=f["check_id"])
+        if f["completed"] and not s["done"] and not s.get("reopened"):
+            s["done"], s["done_at"], s["done_by"] = True, _now(), "feed"
+        out.append(s)
+    out += [s for s in old.values() if s["done"]]   # ticked here but gone from the feed: kept, as history
+    if out or "subtasks" in t:
+        t["subtasks"] = out
+    return sum(not s["done"] for s in out)
 
 
 def run(load, save, feed=None, folder=None):
@@ -211,6 +247,34 @@ def write_event(folder, actor, etype, payload):
     tmp.write_text(json.dumps(e, ensure_ascii=False, separators=(",", ":")) + "\n")
     os.replace(tmp, d / name)
     return e
+
+
+def tick_back_check(t, s, flag, folder=None):
+    """Called by todo.set_sub_done for one check of a ux-inbox task. Mutates s. Never raises."""
+    folder = settings()["folder"] if folder is None else folder
+    actor = t.get("designer") or ""
+    try:
+        if not (folder and actor):
+            raise ValueError("UX Inbox folder or designer not set")
+        if flag:
+            s.pop("reopened", None)
+            if s.get("tick_event_id"):
+                return None
+            e = write_event(folder, actor, "check.marked",
+                            {"itemId": t["item_id"], "criterionId": s["check_id"], "reason": REASON})
+            s["tick_event_id"] = e["id"]
+            s.pop("tick_error", None)
+            return e
+        ev = s.pop("tick_event_id", None)
+        if not ev:
+            if s.pop("done_by", None) == "feed":
+                s["reopened"] = True
+            return None
+        s.pop("done_by", None)
+        return write_event(folder, actor, "check.undone", {"undoes": ev})
+    except Exception as e:
+        s["tick_error"] = str(e)[:160]
+        return None
 
 
 def tick_back(t, flag, folder=None):

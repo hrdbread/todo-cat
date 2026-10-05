@@ -103,6 +103,27 @@ def set_done(tid, flag):
         save(db)
 
 
+def set_sub_done(tid, uid, flag):
+    """Tick / untick one sub-task (a UX Inbox DoD check) of task tid; writes the check back to the inbox."""
+    db = load()
+    t = find(db, tid)
+    s = next((x for x in (t or {}).get("subtasks", []) if x["uid"] == uid), None)
+    if s and bool(s["done"]) != bool(flag):
+        import uxfeed
+        uxfeed.tick_back_check(t, s, flag)
+        s["done"] = flag
+        s["done_at"] = now().isoformat() if flag else None
+        save(db)
+
+
+def set_expanded(tid, flag):
+    db = load()
+    t = find(db, tid)
+    if t:
+        t["expanded"] = bool(flag)
+        save(db)
+
+
 def delete(tid):
     db = load()
     db["tasks"] = [t for t in db["tasks"] if t["id"] != int(tid)]
